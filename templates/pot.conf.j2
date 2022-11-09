@@ -1,0 +1,58 @@
+# {{ ansible_managed }}
+# pot configuration file
+
+# All datasets related to pot use the some zfs dataset as parent
+# With this variable, you can choose which dataset has to be used
+POT_ZFS_ROOT={{ pot.zfs_root }}
+
+# It is also important to know where the root dataset is mounted
+POT_FS_ROOT={{ pot.fs_root }}
+
+# This is the cache used to import/export pots
+POT_CACHE={{ pot.cache }}
+
+# This is where pot is going to store temporary files
+POT_TMP={{ pot.tmp }}
+
+# This is the suffix added to temporary files created using mktemp,
+# X is a placeholder for a random character, see mktemp(1)
+POT_MKTEMP_SUFFIX={{ pot.mktemp_suffix }}
+
+# Define the max length of the hostname inside the pot
+POT_HOSTNAME_MAX_LENGTH={{ pot.hostname_max_length }}
+
+# Internal Virtual Network configuration
+
+# IPv4 Internal Virtual network
+POT_NETWORK={{ pot.network }}
+
+# Internal Virtual Network netmask
+POT_NETMASK={{ pot.netmask }}
+
+# The default gateway of the Internal Virtual Network
+POT_GATEWAY={{ pot.gateway }}
+
+# The name of the network physical interface, to be used as default gateway
+POT_EXTIF={{ pot.extif }}
+
+# The list of extra network interface, to make other network segments accessible
+POT_EXTRA_EXTIF={%- for item in pot.extra_extif %}{{ item.name }} {%- endfor %}
+# for each extra interface, a variable is used to sepcify its network segment
+{%- for item in pot.extra_extif %}
+POT_NETWORK_{{ item.name }}={{ item.netmask }}
+{%- endfor %}
+
+# DNS on the Internal Virtual Network
+
+# name of the pot running the DNS
+POT_DNS_NAME={{ pot.dns_name }}
+
+# IP of the DNS
+POT_DNS_IP={{ pot.dns_ip }}
+
+# VPN support
+
+# name of the tunnel network interface
+POT_VPN_EXTIF={{ pot.vpn_extif }}
+POT_VPN_NETWORKS={%- for item in pot.vpn_networks %}{{ item }} {%- endfor %}
+# EOF

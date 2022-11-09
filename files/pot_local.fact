@@ -1,0 +1,24 @@
+#!/bin/sh
+potroot=$(pot config -g fs_root | awk '{print $3}')
+zpool=$(cat /usr/local/etc/pot/pot.conf | grep POT_ZFS_ROOT | sed 's/.*=//')
+initialized=$([ -d ${potroot} ] && echo true || echo false)
+version=$(pot version | awk '{print $3}')
+
+sep=''
+
+echo -n '{'
+echo -n '  "zpool": "'${zpool}'",'
+echo -n '  "initialized": '${initialized}','
+echo -n '  "version":' ${version}
+if ${initialized}; then
+echo -n '  ,"jails": {'
+for j in $(ls ${potroot}/jails); do
+echo -n '  '${sep}'"'${j}'": {'
+echo -n '    "active": '$(pot info -p "${j}" | grep active | awk -F' : ' '{print $2}')','
+echo -n '    "config": '$(cat "${potroot}/jails/${j}/conf/pot.conf" | sed -r 's/"//g' | awk -vORS=, -F'=' 'BEGIN{print "{"} {print "\"" $1"\": \"" $2 "\""} END{print "}"}' | sed -r 's/\{,/\{/' | sed -r 's/,\},/\}/' | sed -r 's/"(YES|true)"/true/g' | sed -r 's/"(NO|false)"/false/g')
+echo -n '  }'
+sep=','
+done
+echo -n '  }'
+fi # if ${initialized}
+echo    '}'

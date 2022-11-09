@@ -1,0 +1,11 @@
+- include_vars: jail.yml
+
+- name: 'create jail {{ selectedjail.name }}'
+  ansible.builtin.shell: 'pot create -p {{ selectedjail.name }} -i {{ selectedjail.ip|default("auto") }} -S {{ selectedjail.network_stack|default("dual") }} -b {{ selectedjail.base|default("13.1") }} {% if "flavour" in selectedjail %}-f {{ selectedjail.flavour }}{% endif %}'
+  when:
+  - selectedjail.state is not 'absent'
+
+- name: 'destroy jail {{ selectedjail.name }}'
+  ansible.builtin.shell: 'pot destroy -rp {{ selectedjail.name }}'
+  when:
+  - selectedjail.state is 'absent'

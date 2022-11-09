@@ -1,0 +1,71 @@
+---
+- name: "Installing Pot"
+  community.general.pkgng:
+    name: pot
+    state: present
+  when: pot.enabled|bool
+
+- name: '/usr/local/etc/ansible/facts.d'
+  ansible.builtin.file:
+    path: '/usr/local/etc/ansible/facts.d'
+    state: directory
+  when: pot.enabled|bool
+
+- name: local fact
+  ansible.builtin.copy:
+    dest: '/usr/local/etc/ansible/facts.d/pot.fact'
+    src: 'pot_local.fact'
+    mode: '0755'
+  when: pot.enabled|bool
+
+- name: pot_fact
+  ansible.builtin.setup:
+    filter: ansible_local
+  when: pot.enabled|bool
+
+- name: get state
+  set_fact:
+    pot.enabled: ansible_facts.ansible_local.pot.enabled
+    pot.initialized: ansible_facts.ansible_local.pot.initialized
+
+- name: "Initializing Pot"
+  group:
+    community.general.sysrc:
+      name: pot_enable
+      value: YES
+    ansible.builtin.template:
+      src: pot.conf.j2
+      dest: /usr/local/etc/pot/pot.conf
+      mode: 0644
+    ansible.builtin.shell: pot init
+  when:
+  - pot.enabled|bool
+  - not pot.initialized|bool
+
+- name: "De-Initializing Pot"
+  group:
+    ansible.builtin.shell: pot de-init
+    community.general.sysrc:
+      name: pot_enable
+      state: absent
+    community.general.pkgng:
+      name: pot
+      state: absent
+  when:
+  - not pot.enabled|bool
+  - pot.initialized|bool
+
+- name: "Initializing VNET"
+  ansible.builtin.shell: pot vnet-start
+  when:
+  - pot.enabled|bool
+  - pot.vnet_enabled|bool
+
+- include_tasks: jail.yml
+  with_items: '{{ pots }}'
+  loop_control:
+    loop_var: selectedjail
+    when:
+    - pot.enabled|bool
+    - pot.initialized|bool
+    - not selectedjail.ignore|bool

@@ -1,0 +1,3 @@
+---
+pot:
+  jails: '{% if "jails" in ansible_local.pot %}{{ ansible_local.pot.jails }}{% else %}[]{% endif %}'
