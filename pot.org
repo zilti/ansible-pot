@@ -1,0 +1,665 @@
+#+title: Ansible Pot
+#+author: Daniel Ziltener
+
+I am a role to manage your Pot jails on FreeBSD.
+
+* Requirements
+
+None.
+
+* Role Variables
+
+** Pot Server
+
+#+name: server-default-vars
+| Variable            | Default         | Info                     |
+|---------------------+-----------------+--------------------------|
+| enabled             | false           |                          |
+| vnet_enabled        | false           | Triggers ~pot vnet-init~ |
+| fscomps             | []              | A list of fscomps        |
+| bridges             | []              | A list of bridges        |
+| bases               | []              | A list of bases          |
+| jails               | []              | A list of jails          |
+| zfs_root            | tank/pot        | pot.conf value           |
+| fs_root             | /opt/pot        | pot.conf value           |
+| cache               | /var/cache/pot  | pot.conf value           |
+| tmp                 | /tmp            | pot.conf value           |
+| mktemp_suffix       | .XXXXXXXX       | pot.conf value           |
+| hostname_max_length | 64              | pot.conf value           |
+| network             | "10.192.0.0/10" | pot.conf value           |
+| netmask             | "255.192.0.0"   | pot.conf value           |
+| gateway             | "10.192.0.1"    | pot.conf value           |
+| extif               | em0             | pot.conf value           |
+
+#+begin_src yaml :tangle defaults/main.yml :noweb yes :mkdirp yes
+---
+pot:
+  <<gen-defaults-varlist(srctbl=server-default-vars)>>
+#+end_src
+
+*** Main Tasks :noexport:
+
+#+begin_src yaml :tangle tasks/main.yml :mkdirp yes
+- file:
+    path: '/usr/local/etc/ansible/facts.d'
+    state: directory
+  become: yes
+- copy:
+    dest: '/usr/local/etc/ansible/facts.d/pot.fact'
+    src: 'pot_local.fact'
+    mode: '0755'
+  become: yes
+#+end_src
+
+#+begin_src yaml :tangle tasks/main.yml :mkdirp yes
+- name: Installing Pot
+  community.general.pkgng:
+    name: pot
+    state: present
+#+end_src
+
+#+begin_src yaml :tangle tasks/main.yml :mkdirp yes
+- name: Gathering Facts
+  setup:
+    filter: ansible_local
+#+end_src
+
+#+begin_src yaml :tangle tasks/main.yml :mkdirp yes
+- block:
+  - name: enable pot service
+    community.general.sysrc:
+      name: pot_enable
+      value: YES
+  - name: create pot config
+    template:
+      src: pot.conf.j2
+      dest: /usr/local/etc/pot/pot.conf
+      mode: 0644
+  - name: initialize pot
+    shell: pot init
+  - name: refresh facts
+    setup:
+      filter: ansible_local
+  when:
+  - pot.enabled|bool
+  - not potintel.initialized|bool
+#+end_src
+
+#+begin_src yaml :tangle tasks/main.yml :mkdirp yes
+- block:
+  - name: de-initialize pot
+    shell: pot de-init
+  - name: disable pot service
+    community.general.sysrc:
+      name: pot_enable
+      state: absent
+  - name: refresh facts
+    setup:
+      filter: ansible_local
+  when:
+  - not pot.enabled|bool
+  - potintel.initialized|bool
+#+end_src
+
+#+begin_src yaml :tangle tasks/main.yml :mkdirp yes
+- block:
+  - name: initialize vnet
+    file:
+      path: '/usr/local/etc/ansible/.pot_vnet_init'
+      state: touch
+  - shell: pot vnet-start
+  - setup:
+      filter: ansible_local
+  when:
+  - pot.enabled|bool
+  - pot.vnet_enabled|bool
+  - not potintel.vnet_initialized|bool
+#+end_src
+
+#+begin_src yaml :tangle tasks/main.yml :mkdirp yes
+- block:
+  - name: configuring bridges
+    include_tasks: bridge.yml
+    with_items: '{{ pot.bridges }}'
+    loop_control:
+      loop_var: selectedbridge
+  - name: refresh facts
+    setup:
+      filter: ansible_local
+  when:
+  - pot.enabled|bool
+  - potintel.initialized|bool
+  - not selectedbridge.ignore|default(false)|bool
+#+end_src
+
+#+begin_src yaml :tangle tasks/main.yml :mkdirp yes
+- block:
+  - name: configure fs components
+    include_tasks: fscomp.yml
+    with_items: '{{ pot.fscomps }}'
+    loop_control:
+      loop_var: selectedfscomp
+  - name: refresh facts
+    setup:
+      filter: ansible_local
+  when:
+  - pot.enabled|bool
+  - potintel.initialized|bool
+  - not selectedfscomp.ignore|default(false)|bool
+#+end_src
+
+#+begin_src yaml :tangle tasks/main.yml :mkdirp yes
+- block:
+  - name: configuring bases
+    include_tasks: base.yml
+    with_items: '{{ pot.bases }}'
+    loop_control:
+      loop_var: selectedbase
+  - name: refresh facts
+    setup:
+      filter: ansible_local
+  when:
+  - pot.enabled|bool
+  - potintel.initialized|bool
+  - not selectedbase.ignore|default(false)|bool
+#+end_src
+
+#+begin_src yaml :tangle tasks/main.yml :mkdirp yes
+- block:
+  - name: configuring jails
+    include_tasks: jail.yml
+    with_items: '{{ pot.pots }}'
+    loop_control:
+      loop_var: selectedjail
+  - name: refresh facts
+    setup:
+      filter: ansible_local
+  when:
+  - pot.enabled|bool
+  - potintel.initialized|bool
+  - not selectedjail.ignore|default(false)|bool
+#+end_src
+
+** Bridges
+
+The ones created with ~pot create-private-bridge~.
+
+#+name: bridge-vars
+| Variable | Default   | Info                                 |
+|----------+-----------+--------------------------------------|
+| name     |           |                                      |
+| size     |           |                                      |
+| state    | "present" | can be ~present~ or ~absent~         |
+| ignore   | false     | Tells the role to ignore this bridge |
+
+#+begin_src yaml :tangle vars/bridge.yml :noweb yes :mkdirp yes
+---
+bridge:
+  <<gen-vars-varlist(srctbl=bridge-vars,prefix="selectedbridge")>>
+#+end_src
+
+*** Bridge Tasks :noexport:
+
+#+begin_src yaml :tangle tasks/bridge.yml
+- include_vars: bridge.yml
+
+- name: determine bridge name
+  set_fact:
+    bridge_name: '{{ bridge.name }}'
+#+end_src
+
+Bridge creation arguments:
+
+#+name: bridge-create-args
+| Argument | Switch |
+|----------+--------|
+| name     | -B     |
+| size     | -S     |
+
+#+begin_src yaml :tangle tasks/bridge.yml :noweb yes
+- name: "create bridge {{ bridge_name }}"
+  shell: |
+    pot create-private-bridge \
+    <<gen-call-args(srctbl=bridge-create-args,prefix="bridge")>>
+  when:
+  - bridge.state == 'present'
+  - not bridge.name in potintel.bridges
+#+end_src
+
+#+begin_src yaml :tangle tasks/bridge.yml
+- name: 'destroy bridge {{ bridge_name }}'
+  shell: 'pot destroy -B {{ bridge.name }}'
+  when:
+  - bridge.state == 'absent'
+  - bridge.name in potintel.bridges
+#+end_src
+
+** FS Components
+
+The ones created with ~pot create-fscomp~.
+
+#+name: fscomp-vars
+| Variable | Default   | Info                                       |
+|----------+-----------+--------------------------------------------|
+| name     |           |                                            |
+| state    | "present" | can be ~present~ or ~absent~               |
+| ignore   | false     | Tells the role to ignore this fs component |
+
+#+begin_src yaml :tangle vars/fscomp.yml :noweb yes :mkdirp yes
+---
+fscomp:
+  <<gen-vars-varlist(srctbl=fscomp-vars,prefix="selectedfscomp")>>
+#+end_src
+
+*** FSComp Tasks :noexport:
+
+#+begin_src yaml :tangle tasks/fscomp.yml
+- include_vars: fscomp.yml
+
+- name: determine fscomp name
+  set_fact:
+    fscomp_name: '{{ fscomp.name }}'
+#+end_src
+
+FS Component creation arguments:
+
+#+name: fscomp-create-args
+| Argument | Switch |
+|----------+--------|
+| name     | -f     |
+
+#+begin_src yaml :tangle tasks/fscomp.yml :noweb yes
+- block:
+  - name: 'create fs comp {{ fscomp_name }}'
+    shell: |
+      pot create-fscomp \
+      <<gen-call-args(srctbl=fscomp-create-args,prefix="fscomp")>>
+  when:
+  - fscomp.state == 'present'
+  - not fscomp.name in potintel.fscomps
+#+end_src
+
+#+begin_src yaml :tangle tasks/fscomp.yml
+- block:
+  - name: 'destroy fs comp {{ fscomp_name }}'
+    shell: 'pot destroy -f {{ fscomp.name }}'
+  when:
+  - fscomp.state == 'absent'
+  - fscomp.name in potintel.fscomps
+#+end_src
+
+** Bases
+
+The ones created with ~pot create-base~.
+
+#+name: base-vars
+| Variable | Default   | Info                               |
+|----------+-----------+------------------------------------|
+| name     |           | default: the release               |
+| release  |           |                                    |
+| state    | "present" | can be ~present~ or ~absent~.      |
+| ignore   | false     | Tells the role to ignore this base |
+
+#+begin_src yaml :tangle vars/base.yml :noweb yes :mkdirp yes
+---
+base:
+  <<gen-vars-varlist(srctbl=base-vars,prefix="selectedbase")>>
+#+end_src
+
+*** Base Tasks :noexport:
+
+We first determine the base name to use it as feedback.
+
+#+begin_src yaml :tangle tasks/base.yml
+- include_vars: base.yml
+
+- name: determine base name
+  set_fact:
+    base_name: '{{ base.name }}'
+#+end_src
+
+Base creation arguments:
+
+#+name: base-create-args
+| Argument | Switch |
+|----------+--------|
+| name     | -b     |
+| release  | -r     |
+
+#+begin_src yaml :tangle tasks/base.yml :noweb yes
+- block:
+  - name: 'create base {{ base_name }}'
+    shell: |
+      pot create-base \
+      <<gen-call-args(srctbl=base-create-args,prefix="base")>>
+  when:
+  - base.state == 'present'
+  - not base.name in potintel.bases
+#+end_src
+
+#+begin_src yaml :tangle tasks/base.yml
+- block:
+  - name: 'destroy base {{ base_name }}'
+    shell: 'pot destroy -br {{ base.name}}'
+  when:
+  - base.state == 'absent'
+  - 'base-{{ base.name }} in potintel.jails'
+#+end_src
+
+** Jails
+
+For each jail, you can supply a number of arguments. Please note that while renaming pots is implemented, it will break this role, due to  Pot not renaming the actual on-disk jail directory.
+
+#+name: jail-vars
+| Variable      | Default   | Info                                                                    |
+|---------------+-----------+-------------------------------------------------------------------------|
+| name          |           |                                                                         |
+| new_name      |           | Renames the jail. Needs state to be anything but ~absent~ or ~started~. |
+| ignore        | false     | Tells the role to ignore this jail                                      |
+| state         | "present" | can be ~present~, ~absent~, ~started~, ~stopped~, ~restarted~           |
+| ip            | "auto"    |                                                                         |
+| dns           | "inherit" |                                                                         |
+| network_stack | "dual"    |                                                                         |
+| network_type  | "inherit" |                                                                         |
+| bridge_name   |           |                                                                         |
+| base          | "13.1"    |                                                                         |
+| pot           |           | The pot to be used as reference                                         |
+| type          | "multi"   |                                                                         |
+| level         |           |                                                                         |
+| flavour       |           |                                                                         |
+
+#+begin_src yaml :tangle vars/jail.yml :noweb yes :mkdirp yes
+---
+jail:
+  <<gen-vars-varlist(srctbl=jail-vars,prefix="selectedjail")>>
+#+end_src
+
+*** Jail Tasks :noexport:
+
+First thing we have to do for a jail is to determine the name and store it in a variable, to give useful feedback during the playbook runs.
+
+#+begin_src yaml :tangle tasks/jail.yml
+- include_vars: jail.yml
+
+- name: determine jail name
+  set_fact:
+    jail_name: '{{ jail.name }}'
+#+end_src
+
+Destroying a jail requires that the jail state has been set to ~'absent'~ and that the jail is defined in the first place.
+
+#+begin_src yaml :tangle tasks/jail.yml
+- block:
+  - name: 'destroy jail {{ jail_name }} '
+    shell: 'pot stop {{ jail.name }} || pot destroy -rp {{ jail.name }}'
+  - name: 'Update pot facts'
+    setup:
+      filter: ansible_local
+  when:
+  - jail.state == 'absent'
+  - potintel.jails[jail.name] is defined
+#+end_src
+
+Creating a jail accepts a number of arguments:
+
+#+name: jail-create-args
+| Argument      | Switch |
+|---------------+--------|
+| name          | -p     |
+| ip            | -i     |
+| dns           | -d     |
+| base          | -b     |
+| type          | -t     |
+| flavour       | -f     |
+| pot           | -P     |
+| level         | -l     |
+| network_type  | -N     |
+| network_stack | -S     |
+| bridge_name   | -B     |
+
+
+#+begin_src yaml :tangle tasks/jail.yml :noweb yes
+- block:
+  - name: 'create jail {{ jail_name }}'
+    shell: |
+      pot create \
+      <<gen-call-args(srctbl=jail-create-args,prefix="jail")>>
+  - name: 'update pot facts'
+    setup:
+      filter: ansible_local
+  when:
+  - jail.state != 'absent'
+  - not jail.name in potintel.jails
+#+end_src
+
+#+begin_src yaml :tangle tasks/jail.yml
+- block:
+  - name: 'stop jail {{ jail_name }}'
+    shell: 'pot stop {{ jail.name }}'
+  - set_fact:
+      potintel.jails[jail.name].active = false
+  when:
+  - potintel.jails[jail.name] is defined
+  - potintel.jails[jail.name].active|bool
+  - jail.state in ['stopped', 'restarted', 'present']
+#+end_src
+
+#+begin_src yaml :tangle tasks/jail.yml
+- block:
+  - name: 'rename jail {{ jail_name }}'
+    shell: 'pot rename -p {{ jail.name }} -n {{ jail.new_name }}'
+  - setup:
+      filter: ansible_local
+  when:
+  - potintel.jails[jail.name] is defined
+  - jail.state not in ['started', 'absent']
+  - jail.new_name|length
+#+end_src
+
+#+begin_src yaml :tangle tasks/jail.yml
+- block:
+  - name: 'start jail {{ jail_name }}'
+    shell: 'pot start {{ jail.name }}'
+  - set_fact:
+      potintel.jails[jail.name].active = true
+  when:
+  - potintel.jails[jail.name] is defined
+  - jail.state in ['started', 'restarted']
+#+end_src
+
+** Collected Variables
+
+#+name: pot-intel
+| Variable         | Default | Info                                                                        |
+|------------------+---------+-----------------------------------------------------------------------------|
+| initialized      |         | If ~pot init~ has been run already.                                         |
+| vnet_initialized |         | If ~pot vnet-start~ has been run already.                                   |
+| version          |         | The pot version.                                                            |
+| fscomps          | []      |                                                                             |
+| bridges          | []      |                                                                             |
+| bases            | []      |                                                                             |
+| jails            | {}      | A JSON list of the data returned by ~pot info -p~; keys are the jail names. |
+
+#+begin_src yaml :tangle vars/main.yml :noweb yes :mkdirp yes
+---
+potintel:
+  <<gen-vars-varlist(srctbl=pot-intel,prefix="ansible_local.pot")>>
+#+end_src
+
+*** Collecting Script :noexport:
+
+I've split up the shell script into multiple parts to make it easier understandable.
+
+**** Variables
+
+First, there are the scripts to determine variables. We start with determining the root directory of Pot:
+#+name: sh-pot-root
+#+begin_src shell
+pot config -g fs_root | awk '{print $3}'
+#+end_src
+
+#+name: sh-pot-initialized
+#+begin_src shell :noweb no-export
+[ -d $(<<sh-pot-root>>) ] && echo true || echo false
+#+end_src
+
+#+name: sh-vnet-initialized
+#+begin_src shell
+[ -f /usr/local/etc/ansible/.pot_vnet_init ] && echo true || echo false
+#+end_src
+
+#+name: sh-pot-version
+#+begin_src shell
+pot version | awk '{print $3}'
+#+end_src
+
+#+name: sh-jail-active
+#+begin_src shell
+pot info -p "${j}" | grep active | awk -F' : ' '{print $2}'
+#+end_src
+
+**** Generating Config JSON
+
+Goal: generate JSON data for Ansible from the jail's =pot.conf= file. The format is already quite well. The first thing we have to do is to remove the quotes from the file.
+
+#+name: potconf-quote-removal
+#+begin_src shell :noweb no-export
+cat "$(<<sh-pot-root>>)/jails/${j}/conf/pot.conf" | sed -r 's/"//g'
+#+end_src
+
+This =awk= script converts a list of key-value pairs into almost valid JSON:
+
+#+name: awk-jsonize
+#+begin_src awk
+BEGIN{print "{"} {print "\"" $1 "\": \"" $2 "\""} END{print "}"}
+#+end_src
+
+We take that script, and hand it to Awk with a few extra arguments: the comma as *O*utput *R*ecord *S*eparator, and the ~=~ as *F*ield separator.
+
+#+name: sh-awk-jsonize
+#+begin_src shell :noweb no-export
+awk -vORS=, -F'=' '<<awk-jsonize>>'
+#+end_src
+
+We also have to remove the superfluous commas after the opening ~{~ and before the closing ~}~.
+
+#+name: sh-json-cleanup
+#+begin_src shell
+sed -r 's/\{,/\{/' | sed -r 's/,\},/\}/'
+#+end_src
+
+And to finish it all off, we turn the =YES=, =true=, =NO=, and =false= values into proper booleans.
+
+#+name: sh-boolean-conv
+#+begin_src shell
+sed -r 's/"(YES|true)"/true/g' | sed -r 's/"(NO|false)"/false/g'
+#+end_src
+
+#+name: sh-simple-array
+#+begin_src emacs-lisp :var varname="fscomps" :results raw
+(format "if [ ${#%s} -gt 0 ]; then
+    %s_sep=''
+    echo -n ', \"%s\": ['
+    for x in ${%s}; do
+        echo -n ${%s_sep} '\"'${x}'\"'
+        %s_sep=', '
+    done
+    echo -n ']'
+fi" varname varname varname varname varname varname)
+#+end_src
+
+**** Script Assembly
+
+#+begin_src shell :shebang #!/bin/sh :tangle files/pot_local.fact :noweb no-export :mkdirp yes
+pot_root=$(pot config -g fs_root | awk '{print $3}')
+fscomps=$(ls "${pot_root}/fscomp")
+bridges=$(ls "${pot_root}/bridges")
+bases=$(ls "${pot_root}/bases")
+jails=$(ls "${pot_root}/jails")
+
+echo -n '{'
+echo -n '"initialized": ' $(<<sh-pot-initialized>>) ','
+echo -n '"vnet_initialized": ' $(<<sh-vnet-initialized>>) ','
+echo -n '"version": "' $(<<sh-pot-version>>) '"'
+<<sh-simple-array(varname="fscomps")>>
+<<sh-simple-array(varname="bridges")>>
+<<sh-simple-array(varname="bases")>>
+if [ ${#jails} -gt 0 ]; then
+jails_sep=''
+echo -n ', "jails":  {'
+for j in ${jails}; do
+    echo -n ${jails_sep} '"'${j}'":  {'
+    echo -n '"active": ' $(<<sh-jail-active>>) ','
+    echo -n '"config": ' $(<<potconf-quote-removal>> | <<sh-awk-jsonize>> | <<sh-json-cleanup>> | <<sh-boolean-conv>>)
+    echo -n '}'
+    jails_sep=','
+done
+echo -n '}'
+fi
+echo '}'
+#+end_src
+
+* Dependencies
+
+Needs the =community.general= collection.
+
+* Example Playbook
+
+#+begin_src yaml :tangle tests/test.yml :noweb yes :mkdirp yes
+- hosts: all
+  become: yes
+  remote_user: root
+  roles:
+  - role: /vagrant
+    vars:
+      pot:
+        enabled: true
+        vnet_enabled: true
+        zfs_root: tank/pot
+        extif: vtnet0
+        bases:
+        - release: 13.1
+        pots:
+        - name: testpot1
+          state: absent
+        - name: ignorepot
+          state: present
+          ignore: true
+        - name: testpot1
+          state: restarted
+#+end_src
+
+* License
+
+GPL3.0
+
+* Author Information
+
+* Helper Code :noexport:
+
+#+name: gen-defaults-varlist
+#+begin_src emacs-lisp :var srctbl=server-default-vars :colnames yes :results raw
+(mapconcat
+ (lambda (row)
+   (format "%s: %s" (car row) (cadr row)))
+ srctbl "\n")
+#+end_src
+
+#+name: gen-vars-varlist
+#+begin_src emacs-lisp :var srctbl=jail-vars :var prefix="pot" :colnames yes :results raw
+(mapconcat
+ (lambda (row)
+   (format "%s: '{{ %s.%s|default(%S) }}'" (car row) prefix (car row) (cadr row)))
+ srctbl "\n")
+#+end_src
+
+#+name: gen-call-args
+#+begin_src emacs-lisp :var srctbl=jail-create-args :var prefix="jail" :colnames yes :results raw
+(mapconcat
+ (lambda (row)
+   (let ((arg (car row))
+         (switch (cadr row)))
+     (format "{%% if %s.%s|length %%} %s {{ %s.%s }}{%% endif %%} \\ "
+             prefix arg switch prefix arg)))
+ srctbl "\n")
+#+end_src

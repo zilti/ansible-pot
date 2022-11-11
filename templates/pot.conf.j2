@@ -3,56 +3,63 @@
 
 # All datasets related to pot use the some zfs dataset as parent
 # With this variable, you can choose which dataset has to be used
-POT_ZFS_ROOT={{ pot.zfs_root }}
+POT_ZFS_ROOT={{ pot.zfs_root|default("zroot/pot") }}
 
 # It is also important to know where the root dataset is mounted
-POT_FS_ROOT={{ pot.fs_root }}
+POT_FS_ROOT={{ pot.fs_root|default("/opt/pot") }}
 
 # This is the cache used to import/export pots
-POT_CACHE={{ pot.cache }}
+POT_CACHE={{ pot.cache|default("/var/cache/pot") }}
 
 # This is where pot is going to store temporary files
-POT_TMP={{ pot.tmp }}
+POT_TMP={{ pot.tmp|default("/tmp") }}
 
 # This is the suffix added to temporary files created using mktemp,
 # X is a placeholder for a random character, see mktemp(1)
-POT_MKTEMP_SUFFIX={{ pot.mktemp_suffix }}
+POT_MKTEMP_SUFFIX={{ pot.mktemp_suffix|default(".XXXXXXXX") }}
 
 # Define the max length of the hostname inside the pot
-POT_HOSTNAME_MAX_LENGTH={{ pot.hostname_max_length }}
+POT_HOSTNAME_MAX_LENGTH={{ pot.hostname_max_length|default(64) }}
 
 # Internal Virtual Network configuration
 
 # IPv4 Internal Virtual network
-POT_NETWORK={{ pot.network }}
+POT_NETWORK={{ pot.network|default("10.192.0.0/10") }}
 
 # Internal Virtual Network netmask
-POT_NETMASK={{ pot.netmask }}
+POT_NETMASK={{ pot.netmask|default("255.192.0.0") }}
 
 # The default gateway of the Internal Virtual Network
-POT_GATEWAY={{ pot.gateway }}
+POT_GATEWAY={{ pot.gateway|default("10.192.0.1") }}
 
 # The name of the network physical interface, to be used as default gateway
-POT_EXTIF={{ pot.extif }}
+POT_EXTIF={{ pot.extif|default("em0") }}
 
+{%- if "extra_extif" in pot %}
 # The list of extra network interface, to make other network segments accessible
 POT_EXTRA_EXTIF={%- for item in pot.extra_extif %}{{ item.name }} {%- endfor %}
 # for each extra interface, a variable is used to sepcify its network segment
 {%- for item in pot.extra_extif %}
 POT_NETWORK_{{ item.name }}={{ item.netmask }}
 {%- endfor %}
+{%- endif %}
 
 # DNS on the Internal Virtual Network
 
 # name of the pot running the DNS
-POT_DNS_NAME={{ pot.dns_name }}
+POT_DNS_NAME={{ pot.dns_name|default() }}
 
 # IP of the DNS
-POT_DNS_IP={{ pot.dns_ip }}
+POT_DNS_IP={{ pot.dns_ip|default() }}
 
 # VPN support
 
 # name of the tunnel network interface
-POT_VPN_EXTIF={{ pot.vpn_extif }}
+POT_VPN_EXTIF={{ pot.vpn_extif|default() }}
+{%- if "vpn_networks" in pot %}
 POT_VPN_NETWORKS={%- for item in pot.vpn_networks %}{{ item }} {%- endfor %}
+{%- else %}
+# POT_VPN_NETWORKS=
+{%- endif %}
+
 # EOF

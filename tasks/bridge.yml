@@ -1,0 +1,20 @@
+- include_vars: bridge.yml
+
+- name: determine bridge name
+  set_fact:
+    bridge_name: '{{ bridge.name }}'
+
+- name: "create bridge {{ bridge_name }}"
+  shell: |
+    pot create-private-bridge \
+    {% if bridge.name|length %} -B {{ bridge.name }}{% endif %} \ 
+    {% if bridge.size|length %} -S {{ bridge.size }}{% endif %} \ 
+  when:
+  - bridge.state == 'present'
+  - not bridge.name in potintel.bridges
+
+- name: 'destroy bridge {{ bridge_name }}'
+  shell: 'pot destroy -B {{ bridge.name }}'
+  when:
+  - bridge.state == 'absent'
+  - bridge.name in potintel.bridges

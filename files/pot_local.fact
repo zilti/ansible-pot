@@ -1,24 +1,51 @@
 #!/bin/sh
-potroot=$(pot config -g fs_root | awk '{print $3}')
-zpool=$(cat /usr/local/etc/pot/pot.conf | grep POT_ZFS_ROOT | sed 's/.*=//')
-initialized=$([ -d ${potroot} ] && echo true || echo false)
-version=$(pot version | awk '{print $3}')
-
-sep=''
+pot_root=$(pot config -g fs_root | awk '{print $3}')
+fscomps=$(ls "${pot_root}/fscomp")
+bridges=$(ls "${pot_root}/bridges")
+bases=$(ls "${pot_root}/bases")
+jails=$(ls "${pot_root}/jails")
 
 echo -n '{'
-echo -n '  "zpool": "'${zpool}'",'
-echo -n '  "initialized": '${initialized}','
-echo -n '  "version":' ${version}
-if ${initialized}; then
-echo -n '  ,"jails": {'
-for j in $(ls ${potroot}/jails); do
-echo -n '  '${sep}'"'${j}'": {'
-echo -n '    "active": '$(pot info -p "${j}" | grep active | awk -F' : ' '{print $2}')','
-echo -n '    "config": '$(cat "${potroot}/jails/${j}/conf/pot.conf" | sed -r 's/"//g' | awk -vORS=, -F'=' 'BEGIN{print "{"} {print "\"" $1"\": \"" $2 "\""} END{print "}"}' | sed -r 's/\{,/\{/' | sed -r 's/,\},/\}/' | sed -r 's/"(YES|true)"/true/g' | sed -r 's/"(NO|false)"/false/g')
-echo -n '  }'
-sep=','
+echo -n '"initialized": ' $([ -d $(pot config -g fs_root | awk '{print $3}') ] && echo true || echo false) ','
+echo -n '"vnet_initialized": ' $([ -f /usr/local/etc/ansible/.pot_vnet_init ] && echo true || echo false) ','
+echo -n '"version": "' $(pot version | awk '{print $3}') '"'
+if [ ${#fscomps} -gt 0 ]; then
+    fscomps_sep=''
+    echo -n ', "fscomps": ['
+    for x in ${fscomps}; do
+        echo -n ${fscomps_sep} '"'${x}'"'
+        fscomps_sep=', '
+    done
+    echo -n ']'
+fi
+if [ ${#bridges} -gt 0 ]; then
+    bridges_sep=''
+    echo -n ', "bridges": ['
+    for x in ${bridges}; do
+        echo -n ${bridges_sep} '"'${x}'"'
+        bridges_sep=', '
+    done
+    echo -n ']'
+fi
+if [ ${#bases} -gt 0 ]; then
+    bases_sep=''
+    echo -n ', "bases": ['
+    for x in ${bases}; do
+        echo -n ${bases_sep} '"'${x}'"'
+        bases_sep=', '
+    done
+    echo -n ']'
+fi
+if [ ${#jails} -gt 0 ]; then
+jails_sep=''
+echo -n ', "jails":  {'
+for j in ${jails}; do
+    echo -n ${jails_sep} '"'${j}'":  {'
+    echo -n '"active": ' $(pot info -p "${j}" | grep active | awk -F' : ' '{print $2}') ','
+    echo -n '"config": ' $(cat "$(pot config -g fs_root | awk '{print $3}')/jails/${j}/conf/pot.conf" | sed -r 's/"//g' | awk -vORS=, -F'=' 'BEGIN{print "{"} {print "\"" $1 "\": \"" $2 "\""} END{print "}"}' | sed -r 's/\{,/\{/' | sed -r 's/,\},/\}/' | sed -r 's/"(YES|true)"/true/g' | sed -r 's/"(NO|false)"/false/g')
+    echo -n '}'
+    jails_sep=','
 done
-echo -n '  }'
-fi # if ${initialized}
-echo    '}'
+echo -n '}'
+fi
+echo '}'

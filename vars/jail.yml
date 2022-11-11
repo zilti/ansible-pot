@@ -1,2 +1,16 @@
+---
 jail:
-  active: '{{ selectedjail.active }}'
+  name: '{{ selectedjail.name|default("") }}'
+  new_name: '{{ selectedjail.new_name|default("") }}'
+  ignore: '{{ selectedjail.ignore|default("false") }}'
+  state: '{{ selectedjail.state|default("present") }}'
+  ip: '{{ selectedjail.ip|default("auto") }}'
+  dns: '{{ selectedjail.dns|default("inherit") }}'
+  network_stack: '{{ selectedjail.network_stack|default("dual") }}'
+  network_type: '{{ selectedjail.network_type|default("inherit") }}'
+  bridge_name: '{{ selectedjail.bridge_name|default("") }}'
+  base: '{{ selectedjail.base|default("13.1") }}'
+  pot: '{{ selectedjail.pot|default("") }}'
+  type: '{{ selectedjail.type|default("multi") }}'
+  level: '{{ selectedjail.level|default("") }}'
+  flavour: '{{ selectedjail.flavour|default("") }}'

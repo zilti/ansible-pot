@@ -1,3 +1,9 @@
 ---
-pot:
-  jails: '{% if "jails" in ansible_local.pot %}{{ ansible_local.pot.jails }}{% else %}[]{% endif %}'
+potintel:
+  initialized: '{{ ansible_local.pot.initialized|default("") }}'
+  vnet_initialized: '{{ ansible_local.pot.vnet_initialized|default("") }}'
+  version: '{{ ansible_local.pot.version|default("") }}'
+  fscomps: '{{ ansible_local.pot.fscomps|default("[]") }}'
+  bridges: '{{ ansible_local.pot.bridges|default("[]") }}'
+  bases: '{{ ansible_local.pot.bases|default("[]") }}'
+  jails: '{{ ansible_local.pot.jails|default("{}") }}'

@@ -1,5 +1,21 @@
----
-- hosts: localhost
+- hosts: all
+  become: yes
   remote_user: root
   roles:
-    - /vagrant
+  - role: /vagrant
+    vars:
+      pot:
+        enabled: true
+        vnet_enabled: true
+        zfs_root: tank/pot
+        extif: vtnet0
+        bases:
+        - release: 13.1
+        pots:
+        - name: testpot1
+          state: absent
+        - name: ignorepot
+          state: present
+          ignore: true
+        - name: testpot1
+          state: restarted
