@@ -1,0 +1,174 @@
+# Created 2022-11-11 Fr 17:54
+#+title: Ansible Pot
+#+author: Daniel Ziltener
+I am a role to manage your Pot jails on FreeBSD.
+
+* Requirements
+
+None.
+
+* Role Variables
+
+** Pot Server
+
+#+name: server-default-vars
+| Variable            | Default         | Info                     |
+|---------------------+-----------------+--------------------------|
+| enabled             | false           |                          |
+| vnet_enabled        | false           | Triggers ~pot vnet-init~ |
+| fscomps             | []              | A list of fscomps        |
+| bridges             | []              | A list of bridges        |
+| bases               | []              | A list of bases          |
+| jails               | []              | A list of jails          |
+| zfs_root            | tank/pot        | pot.conf value           |
+| fs_root             | /opt/pot        | pot.conf value           |
+| cache               | /var/cache/pot  | pot.conf value           |
+| tmp                 | /tmp            | pot.conf value           |
+| mktemp_suffix       | .XXXXXXXX       | pot.conf value           |
+| hostname_max_length | 64              | pot.conf value           |
+| network             | "10.192.0.0/10" | pot.conf value           |
+| netmask             | "255.192.0.0"   | pot.conf value           |
+| gateway             | "10.192.0.1"    | pot.conf value           |
+| extif               | em0             | pot.conf value           |
+
+#+begin_src yaml
+  ---
+  pot:
+    nil
+#+end_src
+
+** Bridges
+
+The ones created with ~pot create-private-bridge~.
+
+#+name: bridge-vars
+| Variable | Default   | Info                                 |
+|----------+-----------+--------------------------------------|
+| name     |           |                                      |
+| size     |           |                                      |
+| state    | "present" | can be ~present~ or ~absent~         |
+| ignore   | false     | Tells the role to ignore this bridge |
+
+#+begin_src yaml
+  ---
+  bridge:
+    nil
+#+end_src
+
+** FS Components
+
+The ones created with ~pot create-fscomp~.
+
+#+name: fscomp-vars
+| Variable | Default   | Info                                       |
+|----------+-----------+--------------------------------------------|
+| name     |           |                                            |
+| state    | "present" | can be ~present~ or ~absent~               |
+| ignore   | false     | Tells the role to ignore this fs component |
+
+#+begin_src yaml
+  ---
+  fscomp:
+    nil
+#+end_src
+
+** Bases
+
+The ones created with ~pot create-base~.
+
+#+name: base-vars
+| Variable | Default   | Info                               |
+|----------+-----------+------------------------------------|
+| name     |           | default: the release               |
+| release  |           |                                    |
+| state    | "present" | can be ~present~ or ~absent~.      |
+| ignore   | false     | Tells the role to ignore this base |
+
+#+begin_src yaml
+  ---
+  base:
+    nil
+#+end_src
+
+** Jails
+
+For each jail, you can supply a number of arguments. Please note that while renaming pots is implemented, it will break this role, due to  Pot not renaming the actual on-disk jail directory.
+
+#+name: jail-vars
+| Variable      | Default   | Info                                                                    |
+|---------------+-----------+-------------------------------------------------------------------------|
+| name          |           |                                                                         |
+| new_name      |           | Renames the jail. Needs state to be anything but ~absent~ or ~started~. |
+| ignore        | false     | Tells the role to ignore this jail                                      |
+| state         | "present" | can be ~present~, ~absent~, ~started~, ~stopped~, ~restarted~           |
+| ip            | "auto"    |                                                                         |
+| dns           | "inherit" |                                                                         |
+| network_stack | "dual"    |                                                                         |
+| network_type  | "inherit" |                                                                         |
+| bridge_name   |           |                                                                         |
+| base          | "13.1"    |                                                                         |
+| pot           |           | The pot to be used as reference                                         |
+| type          | "multi"   |                                                                         |
+| level         |           |                                                                         |
+| flavour       |           |                                                                         |
+
+#+begin_src yaml
+  ---
+  jail:
+    nil
+#+end_src
+
+** Collected Variables
+
+#+name: pot-intel
+| Variable         | Default | Info                                                                        |
+|------------------+---------+-----------------------------------------------------------------------------|
+| initialized      |         | If ~pot init~ has been run already.                                         |
+| vnet_initialized |         | If ~pot vnet-start~ has been run already.                                   |
+| version          |         | The pot version.                                                            |
+| fscomps          | []      |                                                                             |
+| bridges          | []      |                                                                             |
+| bases            | []      |                                                                             |
+| jails            | {}      | A JSON list of the data returned by ~pot info -p~; keys are the jail names. |
+
+#+begin_src yaml
+  ---
+  potintel:
+    nil
+#+end_src
+
+* Dependencies
+
+Needs the =community.general= collection.
+
+* Example Playbook
+
+#+begin_src yaml
+  - hosts: all
+    become: yes
+    remote_user: root
+    roles:
+    - role: /vagrant
+      vars:
+        pot:
+  	enabled: true
+  	vnet_enabled: true
+  	zfs_root: tank/pot
+  	extif: vtnet0
+  	bases:
+  	- release: 13.1
+  	pots:
+  	- name: testpot1
+  	  state: absent
+  	- name: ignorepot
+  	  state: present
+  	  ignore: true
+  	- name: testpot1
+  	  state: restarted
+#+end_src
+
+* License
+
+GPL3.0
+
+* Author Information
