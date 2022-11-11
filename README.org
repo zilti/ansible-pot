@@ -1,7 +1,7 @@
-# Created 2022-11-11 Fr 17:54
+# Created 2022-11-11 Fr 17:59
 #+title: Ansible Pot
 #+author: Daniel Ziltener
-I am a role to manage your Pot jails on FreeBSD.
+I am a role to manage your Pot jails on FreeBSD. My source is located in the [[blob/master/pot.org][pot.org]] file.
 
 * Requirements
 
@@ -34,7 +34,22 @@ None.
 #+begin_src yaml
   ---
   pot:
-    nil
+    enabled: false
+    vnet_enabled: false
+    fscomps: []
+    bridges: []
+    bases: []
+    jails: []
+    zfs_root: tank/pot
+    fs_root: /opt/pot
+    cache: /var/cache/pot
+    tmp: /tmp
+    mktemp_suffix: .XXXXXXXX
+    hostname_max_length: 64
+    network: 10.192.0.0/10
+    netmask: 255.192.0.0
+    gateway: 10.192.0.1
+    extif: em0
 #+end_src
 
 ** Bridges
@@ -52,7 +67,10 @@ The ones created with ~pot create-private-bridge~.
 #+begin_src yaml
   ---
   bridge:
-    nil
+    name: '{{ selectedbridge.name|default("") }}'
+    size: '{{ selectedbridge.size|default("") }}'
+    state: '{{ selectedbridge.state|default("present") }}'
+    ignore: '{{ selectedbridge.ignore|default("false") }}'
 #+end_src
 
 ** FS Components
@@ -69,7 +87,9 @@ The ones created with ~pot create-fscomp~.
 #+begin_src yaml
   ---
   fscomp:
-    nil
+    name: '{{ selectedfscomp.name|default("") }}'
+    state: '{{ selectedfscomp.state|default("present") }}'
+    ignore: '{{ selectedfscomp.ignore|default("false") }}'
 #+end_src
 
 ** Bases
@@ -87,7 +107,10 @@ The ones created with ~pot create-base~.
 #+begin_src yaml
   ---
   base:
-    nil
+    name: '{{ selectedbase.name|default("") }}'
+    release: '{{ selectedbase.release|default("") }}'
+    state: '{{ selectedbase.state|default("present") }}'
+    ignore: '{{ selectedbase.ignore|default("false") }}'
 #+end_src
 
 ** Jails
@@ -115,7 +138,20 @@ For each jail, you can supply a number of arguments. Please note that while rena
 #+begin_src yaml
   ---
   jail:
-    nil
+    name: '{{ selectedjail.name|default("") }}'
+    new_name: '{{ selectedjail.new_name|default("") }}'
+    ignore: '{{ selectedjail.ignore|default("false") }}'
+    state: '{{ selectedjail.state|default("present") }}'
+    ip: '{{ selectedjail.ip|default("auto") }}'
+    dns: '{{ selectedjail.dns|default("inherit") }}'
+    network_stack: '{{ selectedjail.network_stack|default("dual") }}'
+    network_type: '{{ selectedjail.network_type|default("inherit") }}'
+    bridge_name: '{{ selectedjail.bridge_name|default("") }}'
+    base: '{{ selectedjail.base|default("13.1") }}'
+    pot: '{{ selectedjail.pot|default("") }}'
+    type: '{{ selectedjail.type|default("multi") }}'
+    level: '{{ selectedjail.level|default("") }}'
+    flavour: '{{ selectedjail.flavour|default("") }}'
 #+end_src
 
 ** Collected Variables
@@ -134,7 +170,13 @@ For each jail, you can supply a number of arguments. Please note that while rena
 #+begin_src yaml
   ---
   potintel:
-    nil
+    initialized: '{{ ansible_local.pot.initialized|default("") }}'
+    vnet_initialized: '{{ ansible_local.pot.vnet_initialized|default("") }}'
+    version: '{{ ansible_local.pot.version|default("") }}'
+    fscomps: '{{ ansible_local.pot.fscomps|default("[]") }}'
+    bridges: '{{ ansible_local.pot.bridges|default("[]") }}'
+    bases: '{{ ansible_local.pot.bases|default("[]") }}'
+    jails: '{{ ansible_local.pot.jails|default("{}") }}'
 #+end_src
 
 * Dependencies

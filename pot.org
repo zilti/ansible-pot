@@ -1,7 +1,7 @@
 #+title: Ansible Pot
 #+author: Daniel Ziltener
 
-I am a role to manage your Pot jails on FreeBSD.
+I am a role to manage your Pot jails on FreeBSD. My source is located in the [[blob/master/pot.org][pot.org]] file.
 
 * Requirements
 
