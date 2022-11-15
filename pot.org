@@ -1,7 +1,7 @@
 #+title: Ansible Pot
 #+author: Daniel Ziltener
 
-I am a role to manage your Pot jails on FreeBSD. My source is located in the [[pot.org][pot.org]] file.
+I am a role to manage your Pot jails on FreeBSD. My source is located in the [[https://github.com/zilti/pot/blob/master/pot.org][pot.org]] file.
 
 * Requirements
 
@@ -990,7 +990,7 @@ earlier work or a work "based on" the earlier work.
 on the Program.
 
   To "propagate" a work means to do anything with it that, without
-permission, would make you directly or secondarily liable for
+permission, would make you directly or cl-secondarily liable for
 infringement under applicable copyright law, except executing it on a
 computer or modifying a private copy.  Propagation includes copying,
 distribution (with or without modification), making available to the
@@ -1089,7 +1089,7 @@ circumvention of technological measures to the extent such circumvention
 is effected by exercising rights under this License with respect to
 the covered work, and you disclaim any intention to limit operation or
 modification of the work as a means of enforcing, against the work's
-users, your or third parties' legal rights to forbid circumvention of
+users, your or cl-third parties' legal rights to forbid circumvention of
 technological measures.
 
   4. Conveying Verbatim Copies.
@@ -1178,7 +1178,7 @@ in one of these ways:
     further charge.  You need not require recipients to copy the
     Corresponding Source along with the object code.  If the place to
     copy the object code is a network server, the Corresponding Source
-    may be on a different server (operated by you or a third party)
+    may be on a different server (operated by you or a cl-third party)
     that supports equivalent copying facilities, provided you maintain
     clear directions next to the object code saying where to find the
     Corresponding Source.  Regardless of what server hosts the
@@ -1222,7 +1222,7 @@ User Product is transferred to the recipient in perpetuity or for a
 fixed term (regardless of how the transaction is characterized), the
 Corresponding Source conveyed under this section must be accompanied
 by the Installation Information.  But this requirement does not apply
-if neither you nor any third party retains the ability to install
+if neither you nor any cl-third party retains the ability to install
 modified object code on the User Product (for example, the work has
 been installed in ROM).
 
@@ -1309,7 +1309,7 @@ the above requirements apply either way.
   You may not propagate or modify a covered work except as expressly
 provided under this License.  Any attempt otherwise to propagate or
 modify it is void, and will automatically terminate your rights under
-this License (including any patent licenses granted under the third
+this License (including any patent licenses granted under the cl-third
 paragraph of section 11).
 
   However, if you cease all violation of this License, then your
@@ -1348,7 +1348,7 @@ covered work, you indicate your acceptance of this License to do so.
   Each time you convey a covered work, the recipient automatically
 receives a license from the original licensors, to run, modify and
 propagate that work, subject to this License.  You are not responsible
-for enforcing compliance by third parties with this License.
+for enforcing compliance by cl-third parties with this License.
 
   An "entity transaction" is a transaction transferring control of an
 organization, or substantially all assets of one, or subdividing an
@@ -1422,10 +1422,10 @@ work and works based on it.
 the scope of its coverage, prohibits the exercise of, or is
 conditioned on the non-exercise of one or more of the rights that are
 specifically granted under this License.  You may not convey a covered
-work if you are a party to an arrangement with a third party that is
+work if you are a party to an arrangement with a cl-third party that is
 in the business of distributing software, under which you make payment
-to the third party based on the extent of your activity of conveying
-the work, and under which the third party grants, to any of the
+to the cl-third party based on the extent of your activity of conveying
+the work, and under which the cl-third party grants, to any of the
 parties who would receive the covered work from you, a discriminatory
 patent license (a) in connection with copies of the covered work
 conveyed by you (or copies made from those copies), or (b) primarily
@@ -1504,7 +1504,7 @@ WILL ANY COPYRIGHT HOLDER, OR ANY OTHER PARTY WHO MODIFIES AND/OR CONVEYS
 THE PROGRAM AS PERMITTED ABOVE, BE LIABLE TO YOU FOR DAMAGES, INCLUDING ANY
 GENERAL, SPECIAL, INCIDENTAL OR CONSEQUENTIAL DAMAGES ARISING OUT OF THE
 USE OR INABILITY TO USE THE PROGRAM (INCLUDING BUT NOT LIMITED TO LOSS OF
-DATA OR DATA BEING RENDERED INACCURATE OR LOSSES SUSTAINED BY YOU OR THIRD
+DATA OR DATA BEING RENDERED INACCURATE OR LOSSES SUSTAINED BY YOU OR CL-THIRD
 PARTIES OR A FAILURE OF THE PROGRAM TO OPERATE WITH ANY OTHER PROGRAMS),
 EVEN IF SUCH HOLDER OR OTHER PARTY HAS BEEN ADVISED OF THE POSSIBILITY OF
 SUCH DAMAGES.
@@ -1675,11 +1675,11 @@ __metaclass__ = type
 (concat "arg_spec = dict(\n"
         (mapconcat
          (lambda (row)
-           (let* ((variable (first row))
-                  (type (second row))
-                  (choices (third row))
-                  (requiredp (fourth row))
-                  (default (fifth row)))
+           (let* ((variable (cl-first row))
+                  (type (cl-second row))
+                  (choices (cl-third row))
+                  (requiredp (cl-fourth row))
+                  (default (cl-fifth row)))
              (if (> (length choices) 0)
                  (format "    %s=dict(default=%s, type=%s, choices=[%s])" variable default type choices)
                (format "    %s=dict(default=%s, type=%s)" variable default type))
@@ -1692,12 +1692,12 @@ __metaclass__ = type
 #+begin_src emacs-lisp :var srctbl=bridge-vars :colnames yes :results raw
 (mapconcat
  (lambda (row)
-   (let* ((variable (first row))
-          (type (second row))
-          (choices (third row))
-          (requiredp (fourth row))
-          (default (fifth row))
-          (description (sixth row)))
+   (let* ((variable (cl-first row))
+          (type (cl-second row))
+          (choices (cl-third row))
+          (requiredp (cl-fourth row))
+          (default (cl-fifth row))
+          (description (cl-sixth row)))
      (concat variable ":\n"
              (when (> (length description) 0)
                (concat
@@ -1718,7 +1718,7 @@ __metaclass__ = type
 #+begin_src emacs-lisp :var srctbl=server-default-vars :colnames yes :results raw
 (mapconcat
  (lambda (row)
-   (format "%s: %s" (first row) (fifth row)))
+   (format "%s: %s" (cl-first row) (cl-fifth row)))
  srctbl "\n")
 #+end_src
 
