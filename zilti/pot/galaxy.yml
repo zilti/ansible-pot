@@ -1,0 +1,20 @@
+namespace: zilti
+name: pot
+version: 0.1.0
+
+authors:
+  - Daniel Ziltener <dziltener@lyrion.ch>
+
+tags:
+  - freebsd
+  - jails
+  - pot
+
+readme: README.org
+license_file: LICENSE
+description: Roles and modules for installing and using Pot
+
+repository: https://github.com/zilti/pot
+issues: https://github.com/zilti/pot/issues
+documentation: https://github.com/zilti/pot
+homepage: https://github.com/zilti/pot

@@ -1,5 +1,0 @@
----
-fscomp:
-  name: '{{ selectedfscomp.name|default("") }}'
-  state: '{{ selectedfscomp.state|default("present") }}'
-  ignore: '{{ selectedfscomp.ignore|default("false") }}'

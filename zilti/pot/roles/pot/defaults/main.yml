@@ -1,0 +1,14 @@
+---
+pot:
+  enabled: False
+  vnet_enabled: False
+  zfs_root: 'tank/pot'
+  fs_root: '/opt/pot'
+  cache: '/var/cache/pot'
+  tmp: '/tmp'
+  mktemp_suffix: '.XXXXXXXX'
+  hostname_max_length: 64
+  network: '10.192.0.0/10'
+  netmask: '255.192.0.0'
+  gateway: '10.192.0.1'
+  extif: 'em0'

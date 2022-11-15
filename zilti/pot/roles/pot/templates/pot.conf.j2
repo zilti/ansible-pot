@@ -35,14 +35,17 @@ POT_GATEWAY={{ pot.gateway|default("10.192.0.1") }}
 # The name of the network physical interface, to be used as default gateway
 POT_EXTIF={{ pot.extif|default("em0") }}
 
-{%- if "extra_extif" in pot %}
+{% if "extra_extif" in pot %}
 # The list of extra network interface, to make other network segments accessible
 POT_EXTRA_EXTIF={%- for item in pot.extra_extif %}{{ item.name }} {%- endfor %}
 # for each extra interface, a variable is used to sepcify its network segment
-{%- for item in pot.extra_extif %}
+{% for item in pot.extra_extif %}
 POT_NETWORK_{{ item.name }}={{ item.netmask }}
-{%- endfor %}
-{%- endif %}
+{% endfor %}
+{% else %}
+# POT_EXTRA_EXTIF=expl0
+# POT_NETWORK_expl0=
+{% endif %}
 
 # DNS on the Internal Virtual Network
 
@@ -56,10 +59,11 @@ POT_DNS_IP={{ pot.dns_ip|default() }}
 
 # name of the tunnel network interface
 POT_VPN_EXTIF={{ pot.vpn_extif|default() }}
-{%- if "vpn_networks" in pot %}
+
+{% if "vpn_networks" in pot %}
 POT_VPN_NETWORKS={%- for item in pot.vpn_networks %}{{ item }} {%- endfor %}
-{%- else %}
+{% else %}
 # POT_VPN_NETWORKS=
-{%- endif %}
+{% endif %}
 
 # EOF

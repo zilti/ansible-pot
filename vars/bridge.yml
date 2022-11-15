@@ -1,6 +1,0 @@
----
-bridge:
-  name: '{{ selectedbridge.name|default("") }}'
-  size: '{{ selectedbridge.size|default("") }}'
-  state: '{{ selectedbridge.state|default("present") }}'
-  ignore: '{{ selectedbridge.ignore|default("false") }}'

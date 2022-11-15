@@ -1,6 +1,0 @@
----
-base:
-  name: '{{ selectedbase.name|default("") }}'
-  release: '{{ selectedbase.release|default("") }}'
-  state: '{{ selectedbase.state|default("present") }}'
-  ignore: '{{ selectedbase.ignore|default("false") }}'

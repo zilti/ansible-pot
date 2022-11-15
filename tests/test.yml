@@ -2,20 +2,19 @@
   become: yes
   remote_user: root
   roles:
-  - role: /vagrant
+  - role: zilti.pot.pot
     vars:
       pot:
         enabled: true
         vnet_enabled: true
         zfs_root: tank/pot
         extif: vtnet0
-        bases:
-        - release: 13.1
-        pots:
-        - name: testpot1
-          state: absent
-        - name: ignorepot
-          state: present
-          ignore: true
-        - name: testpot1
-          state: restarted
+  tasks:
+  - zilti.pot.pot_base:
+      name: 13.1
+      release: 13.1
+
+  - zilti.pot.pot_jail:
+      name: testpot1
+      base: 13.1
+      state: present
