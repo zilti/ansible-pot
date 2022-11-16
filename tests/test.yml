@@ -14,7 +14,13 @@
       name: 13.1
       release: 13.1
 
+  - zilti.pot.pot_fscomp:
+      name: testfs
+
   - zilti.pot.pot_jail:
       name: testpot1
       base: 13.1
-      state: present
+      state: started
+      mounts:
+      - target: /opt
+        fscomp: testfs

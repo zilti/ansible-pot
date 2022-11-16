@@ -5,9 +5,11 @@ import re
 import subprocess
 from os.path import exists
 from ansible.module_utils.basic import AnsibleModule
+from ansible.errors import AnsibleError
 
 
 __metaclass__ = type
+
 
 DOCUMENTATION = r"""
 ---
@@ -58,6 +60,10 @@ class PotFSComp(object):
     def pot_root(self):
         rc, out, err = self._exec([self.executable[0], "config", "-g", "fs_root"])
         return out.split("=")[1].strip()
+    
+    def pot_zfs_root(self):
+        rc, out, err = self._exec([self.executable[0], "config", "-g", "zfs_root"])
+        return out.split("=")[1].strip()
     def fscomp_exists(self):
         return exists(self.pot_root()+'/fscomp/'+self.params["name"])
     def create(self):
@@ -82,9 +88,9 @@ class PotFSComp(object):
 
 def main():
     arg_spec = dict(
-        name=dict(default=None, type=str),
-        state=dict(default='present', type=str, choices=['present', 'absent']),
-        ignore=dict(default=False, type=bool))
+        name=dict(default=None, type="str"),
+        state=dict(default='present', type="str", choices=['present', 'absent']),
+        ignore=dict(default=False, type="bool"))
     module = AnsibleModule(argument_spec=arg_spec, supports_check_mode=True)
     fscomp = PotFSComp(module, params=module.params)
     changed, out, err = False, None, None

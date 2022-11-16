@@ -1,20 +1,23 @@
 namespace: zilti
 name: pot
-version: 0.1.0
+version: 0.4.0
 
 authors:
   - Daniel Ziltener <dziltener@lyrion.ch>
+
+dependencies:
+  community.general: "*"
 
 tags:
   - freebsd
   - jails
   - pot
 
-readme: README.org
-license_file: LICENSE
+readme: README.md
+license: GPL-3.0-or-later
 description: Roles and modules for installing and using Pot
 
-repository: https://github.com/zilti/pot
-issues: https://github.com/zilti/pot/issues
-documentation: https://github.com/zilti/pot
-homepage: https://github.com/zilti/pot
+repository: https://github.com/zilti/ansible-pot
+issues: https://github.com/zilti/ansible-pot/issues
+documentation: https://github.com/zilti/ansible-pot
+homepage: https://github.com/zilti/ansible-pot

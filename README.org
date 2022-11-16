@@ -1,4 +1,4 @@
-# Created 2022-11-15 Di 16:24
+# Created 2022-11-16 Mi 15:46
 #+title: Ansible Pot
 #+author: Daniel Ziltener
 I am a role to manage your Pot jails on FreeBSD. My source is located in the [[https://github.com/zilti/pot/blob/master/pot.org][pot.org]] file.
@@ -68,7 +68,6 @@ None.
     bases: '{{ ansible_local.pot.bases|default("[]") }}'
     jails: '{{ ansible_local.pot.jails|default("{}") }}'
 #+end_src
-
 
 ** Pot Configuration Template
 
@@ -144,7 +143,8 @@ None.
   # EOF
 #+end_src
 
-* Role Plugins
+
+* Plugins
 
 ** Bridges Module
 
@@ -197,7 +197,7 @@ For each jail, you can supply a number of arguments.
 | name          | str  |                                                        | #t        | None      | The jail name     |
 | state         | str  | 'present', 'absent', 'started', 'stopped', 'restarted' | #f        | 'present' |                   |
 | ignore        | bool |                                                        | #f        | False     | Ignore this task? |
-| ip            | str  |                                                        | #f        | 'auto'    |                   |
+| ip            | list | str                                                    | #f        | None      |                   |
 | network_stack | str  | 'ipv4', 'ipv6', 'dual'                                 | #f        | 'dual'    |                   |
 | network_type  | str  | 'inherit', 'alias', 'public-bridge', 'private-bridge'  | #f        | 'inherit' |                   |
 | bridge_name   | str  |                                                        | #f        | None      |                   |
@@ -206,8 +206,45 @@ For each jail, you can supply a number of arguments.
 | type          | str  | 'single', 'multi'                                      | #f        | 'multi'   |                   |
 | level         | int  |                                                        | #f        | None      |                   |
 | flavour       | str  |                                                        | #f        | None      |                   |
+| mounts        | list | dict                                                   | #f        | []        | Things to mount   |
+
+#+name: jail-mount-vars
+| Variable | Type | Choices    | Required? | Default | Info                                               |
+|----------+------+------------+-----------+---------+----------------------------------------------------|
+| target   | path |            | #t        | None    | Mount point                                        |
+| dir      | path |            | #f        | None    | Directory on the host to mount                     |
+| fscomp   | str  |            | #f        | None    | fscomp to mount                                    |
+| dataset  | str  |            | #f        | None    | ZFS dataset to mount                               |
+| direct   | bool |            | #f        | False   | change the ZFS mount point instead of using nullfs |
+| mode     | str  | 'ro', 'rw' | #f        | 'rw'    | Mount as read-only or read-write?                  |
 
 *** Examples
+
+** Pot Connection
+
+This collection also provides a connection plugin to execute commands inside a Pot. Two variants are provided: one for local pots, and one for remote pots.
+
+*** Local Pots
+
+#+name: local-potconn-vars
+| Variable     | Type | Choices | Required? | Default            | Info                           |
+|--------------+------+---------+-----------+--------------------+--------------------------------|
+| ansible_host | str  |         | #f        | inventory_hostname | Name of the jail               |
+| ansible_user | str  |         | #f        |                    | User inside the jail to run as |
+
+**** Examples
+
+*** Remote Pots
+
+Connecting to remote pots works almost like the SSH connection plugin - it is an extension of it. The difference is that you have to specify the name of the pot, and of course tell Ansible to use the =zilti.pot.pot_remote= connection plugin. Here's an example inventory file:
+
+#+name: remotepot-inventory
+#+begin_src fundamental
+  [jails]
+  testpot1@192.168.121.13 ansible_connection=zilti.pot.pot_remote
+#+end_src
+
+Be aware that the connection plugin will need to use a =become= plugin to copy files into and out of the pot.
 
 * Dependencies
 
@@ -232,10 +269,16 @@ Needs the =community.general= collection.
         name: 13.1
         release: 13.1
 
+    - zilti.pot.pot_fscomp:
+        name: testfs
+
     - zilti.pot.pot_jail:
         name: testpot1
         base: 13.1
-        state: present
+        state: started
+        mounts:
+        - target: /opt
+  	fscomp: testfs
 #+end_src
 
 * License
@@ -249,26 +292,33 @@ Daniel Ziltener, Code & Magic UG
 * Ansible Galaxy Metadata
 
 #+begin_src yaml
+  requires_ansible: ">=2.9"
+#+end_src
+
+#+begin_src yaml
   namespace: zilti
   name: pot
-  version: 0.1.0
+  version: 0.4.0
 
   authors:
     - Daniel Ziltener <dziltener@lyrion.ch>
+
+  dependencies:
+    community.general: "*"
 
   tags:
     - freebsd
     - jails
     - pot
 
-  readme: README.org
-  license_file: LICENSE
+  readme: README.md
+  license: GPL-3.0-or-later
   description: Roles and modules for installing and using Pot
 
-  repository: https://github.com/zilti/pot
-  issues: https://github.com/zilti/pot/issues
-  documentation: https://github.com/zilti/pot
-  homepage: https://github.com/zilti/pot
+  repository: https://github.com/zilti/ansible-pot
+  issues: https://github.com/zilti/ansible-pot/issues
+  documentation: https://github.com/zilti/ansible-pot
+  homepage: https://github.com/zilti/ansible-pot
 #+end_src
 
 #+begin_src yaml
@@ -288,7 +338,7 @@ Daniel Ziltener, Code & Magic UG
     # - GPL-3.0-only
     # - Apache-2.0
     # - CC-BY-4.0
-    license: GPL-3.0-only
+    license: GPL-3.0-or-later
 
     min_ansible_version: 2.9
 

@@ -3,6 +3,7 @@
 $script = <<-EOF
 export ASSUME_ALWAYS_YES=YES
 pkg install py39-ansible python3
+rm -rf /usr/local/share/py39-ansible/collections/ansible_collections/zilti
 ansible-galaxy collection install /vagrant/zilti/ -p /usr/local/share/py39-ansible/collections/
 ansible-galaxy collection install community.general -p /usr/local/share/py39-ansible/collections/
 EOF

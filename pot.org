@@ -21,6 +21,8 @@ def __init__(self, module, **kwargs):
 <<py__exec>>
 
 <<py_pot_root>>
+
+<<py_pot_zfs_root>>
 #+end_src
 
 Exec procedure:
@@ -39,6 +41,15 @@ Determining Pot's root directory:
 #+begin_src python
 def pot_root(self):
     rc, out, err = self._exec([self.executable[0], "config", "-g", "fs_root"])
+    return out.split("=")[1].strip()
+#+end_src
+
+And the ZFS root:
+
+#+name: py_pot_zfs_root
+#+begin_src python
+def pot_zfs_root(self):
+    rc, out, err = self._exec([self.executable[0], "config", "-g", "zfs_root"])
     return out.split("=")[1].strip()
 #+end_src
 
@@ -287,7 +298,6 @@ fi
 echo '}'
 #+end_src
 
-
 ** Pot Configuration Template
 
 #+begin_src jinja2 :tangle zilti/pot/roles/pot/templates/pot.conf.j2 :mkdirp yes
@@ -362,7 +372,8 @@ POT_VPN_NETWORKS={%- for item in pot.vpn_networks %}{{ item }} {%- endfor %}
 # EOF
 #+end_src
 
-* Role Plugins
+
+* Plugins
 
 ** Bridges Module
 
@@ -689,7 +700,7 @@ For each jail, you can supply a number of arguments.
 | name          | str  |                                                        | #t        | None      | The jail name     |
 | state         | str  | 'present', 'absent', 'started', 'stopped', 'restarted' | #f        | 'present' |                   |
 | ignore        | bool |                                                        | #f        | False     | Ignore this task? |
-| ip            | str  |                                                        | #f        | 'auto'    |                   |
+| ip            | list | str                                                    | #f        | None      |                   |
 | network_stack | str  | 'ipv4', 'ipv6', 'dual'                                 | #f        | 'dual'    |                   |
 | network_type  | str  | 'inherit', 'alias', 'public-bridge', 'private-bridge'  | #f        | 'inherit' |                   |
 | bridge_name   | str  |                                                        | #f        | None      |                   |
@@ -698,6 +709,17 @@ For each jail, you can supply a number of arguments.
 | type          | str  | 'single', 'multi'                                      | #f        | 'multi'   |                   |
 | level         | int  |                                                        | #f        | None      |                   |
 | flavour       | str  |                                                        | #f        | None      |                   |
+| mounts        | list | dict                                                   | #f        | []        | Things to mount   |
+
+#+name: jail-mount-vars
+| Variable | Type | Choices    | Required? | Default | Info                                               |
+|----------+------+------------+-----------+---------+----------------------------------------------------|
+| target   | path |            | #t        | None    | Mount point                                        |
+| dir      | path |            | #f        | None    | Directory on the host to mount                     |
+| fscomp   | str  |            | #f        | None    | fscomp to mount                                    |
+| dataset  | str  |            | #f        | None    | ZFS dataset to mount                               |
+| direct   | bool |            | #f        | False   | change the ZFS mount point instead of using nullfs |
+| mode     | str  | 'ro', 'rw' | #f        | 'rw'    | Mount as read-only or read-write?                  |
 
 #+name: jail-docstr
 #+begin_src yaml :noweb no-export :exports none
@@ -744,19 +766,19 @@ def get_info(self, key):
 Creating a jail accepts a number of arguments:
 
 #+name: jail-create-args
-| Argument      | Switch |
-|---------------+--------|
-| name          | -p     |
-| ip            | -i     |
-| dns           | -d     |
-| base          | -b     |
-| type          | -t     |
-| flavour       | -f     |
-| pot           | -P     |
-| level         | -l     |
-| network_type  | -N     |
-| network_stack | -S     |
-| bridge_name   | -B     |
+| Argument      | Switch | Type   |
+|---------------+--------+--------|
+| name          | -p     | single |
+| ip            | -i     | multi  |
+| dns           | -d     | single |
+| base          | -b     | single |
+| type          | -t     | single |
+| flavour       | -f     | single |
+| pot           | -P     | single |
+| level         | -l     | single |
+| network_type  | -N     | single |
+| network_stack | -S     | single |
+| bridge_name   | -B     | single |
 
 #+name: jail_create
 #+begin_src python :noweb no-export
@@ -810,12 +832,69 @@ def start(self):
         return False, None, None
 #+end_src
 
+Mounting things in jails:
+
+#+name: jail-mounts-args
+| Argument | Switch | Type   |
+|----------+--------+--------|
+| target   | -m     | single |
+| dir      | -d     | single |
+| fscomp   | -f     | single |
+| dataset  | -z     | single |
+| direct   | -w     | flag   |
+| mode     | -r     | flag   |
+
+#+name: jail_has_mount
+#+begin_src python
+def has_mount(self, mountpoint, mounttarget):
+    jaildir = self.pot_root()+'/jails/'+self.params["name"]
+    jailroot = jaildir+'/m'
+    mountline = mounttarget+' '+jailroot+mountpoint
+    rc, out, err = self._exec(['cat', jaildir+'/conf/fscomp.conf'])
+    res = list(filter(lambda x: x == mountline, out.split("\n")))
+    return len(res) > 0
+#+end_src
+
+#+name: jail_mounts
+#+begin_src python :noweb no-export
+def mounts(self):
+    changed = False
+    rc = 0
+    out = None
+    err = None
+    if not "mounts" in self.params:
+        return False, None, None
+    for mount in self.params["mounts"]:
+        mounttarget = ""
+        if "dir" in mount:
+            mounttarget = mount["dir"]
+        elif "fscomp" in mount:
+            mounttarget = self.pot_zfs_root()+'/fscomp/'+mount["fscomp"]
+        elif "dataset" in mount:
+            mounttarget = mount["dataset"]
+
+        if not self.has_mount(mount["target"], mounttarget):
+            cmd = [self.executable[0], 'mount-in', '-p', self.params["name"]]
+            if "mode" in mount and mount["mode"] != "ro":
+                self.params.pop("mode")
+            <<cmdswitches(srctbl=jail-mounts-args,dict="cmd",kwargs="mount")>>
+            rc1, out1, err1 = self._exec(cmd)
+            rc = rc + rc1
+            out = (out and out+"\n"+out1) or out1
+            err = (err and err+"\n"+err1) or err1
+            changed = changed or True
+        else:
+            changed = changed or False
+    return changed, out, err
+#+end_src
+
 Module:
 
 #+begin_src python :noweb no-export :tangle zilti/pot/plugins/modules/pot_jail.py :mkdirp yes
 <<module-header>>
 
 DOCUMENTATION = r"""
+<<jail-docstr>>
 """
 
 EXAMPLES = r"""
@@ -825,10 +904,12 @@ EXAMPLES = r"""
 class PotJail(object):
     <<py_module__init>>
     <<jail_exists>>
+    <<jail_has_mount>>
     <<jail_create>>
     <<jail_destroy>>
     <<jail_stop>>
     <<jail_start>>
+    <<jail_mounts>>
 
 
 def main():
@@ -858,10 +939,576 @@ def main():
         changed = c1 or c2 or c3
         out = "%s\n%s\n%s" % o1, o2, o3
         err = "%s\n%s\n%s" % e1, e2, e3
+    if module.params["state"] != "absent":
+        c1, o1, e1 = jail.mounts()
+        changed = changed or c1
+        out = (out and out+"\n"+o1) or o1
+        err = (err and err+"\n"+e1) or e1
     module.exit_json(changed=changed, stdout=out, stderr=err)
+
 
 if __name__ == "__main__":
     main()
+#+end_src
+
+** Pot Connection
+
+This collection also provides a connection plugin to execute commands inside a Pot. Two variants are provided: one for local pots, and one for remote pots.
+
+*** Local Pots
+
+#+name: local-potconn-vars
+| Variable     | Type | Choices | Required? | Default            | Info                           |
+|--------------+------+---------+-----------+--------------------+--------------------------------|
+| ansible_host | str  |         | #f        | inventory_hostname | Name of the jail               |
+| ansible_user | str  |         | #f        |                    | User inside the jail to run as |
+
+#+name: potconn-local-docstr
+#+begin_src yaml :noweb yes :exports none
+---
+author: Daniel Ziltener <dziltener@lyrion.ch>
+name: pot
+short_description: Run tasks in pots
+description:
+  - Run commands or put/fetch files from/to an existing pot
+options:
+  <<vardesc(srctbl=local-potconn-vars)>>
+#+end_src
+
+**** Examples
+
+**** Pot Connection :noexport:
+
+#+name: py_potconn_local__init
+#+begin_src python
+def __init__(self, play_context, new_stdin, *args, **kwargs):
+    super(Connection, self).__init__(play_context, new_stdin, *args, **kwargs)
+    self.executable = "/usr/local/bin/pot"
+    self.jail = self._play_context.remote_host
+
+    if os.geteuid() != 0:
+        raise AnsibleError("jail connection requires running as root")
+    if self.jail not in self.list_jails():
+        raise AnsibleError("jail %s does not exist" % self.jail)
+#+end_src
+
+We need to have a list of all jails.
+
+#+name: py_potconn_local_list_jails
+#+begin_src python
+def list_jails(self):
+    rc, out, err = self._exec([self.executable, 'ls'])
+    filtered = filter(lambda x: x.startswith("pot name"), out.split("\n"))
+    jailnames = map(lambda x: x.split(":")[1].strip(), filtered)
+    return jailnames
+#+end_src
+
+We have to do three things to implement =ConnectionBase=. The main one is executing a command:
+
+#+name: py_potconn_local_exec_command
+#+begin_src python
+def exec_command(self, cmd, in_data=None, sudoable=False):
+    super(Connection, self).exec_command(cmd, in_data, sudoable)
+    display.vvv("In jail %s: exec %s" % (self.jail, cmd))
+    rc, out, err = self._exec([self.executable, 'exec', '-p', self.jail, cmd])
+    return rc, out, err
+#+end_src
+
+We also need to provide facilities to put and fetch files:
+
+#+name: py_potconn_local_put_file
+#+begin_src python
+def put_file(self, in_path, out_path):
+    super(Connection, self).put_file(in_path, out_path)
+    display.vvv("In jail %s: put %s to %s" % (self.jail, in_path, out_path))
+    rc, out, err = self._exec([self.executable, 'copy-in', '-p', self.jail, '-s', in_path, '-d', out_path])
+#+end_src
+
+#+name: py_potconn_local_fetch_file
+#+begin_src python
+def fetch_file(self, in_path, out_path):
+    super(Connection, self).fetch_file(in_path, out_path)
+    display.vvv("In jail %s: fetch %s to %s" % (self.jail, in_path, out_path))
+    rc, out, err = self._exec([self.executable, 'copy-out', '-p', self.jail, '-s', in_path, '-d', out_path])
+#+end_src
+
+The whole plugin:
+#+begin_src python :noweb no-export :tangle zilti/pot/plugins/connection/pot.py :mkdirp yes
+<<connection-header>>
+
+DOCUMENTATION = r"""
+<<potconn-local-docstr>>
+"""
+
+EXAMPLES = r"""
+"""
+
+
+class Connection(ConnectionBase):
+    transport = 'zilti.pot.pot'
+    has_pipelining = True
+    has_tty = False
+
+    <<py_potconn_local__init>>
+    <<py__exec>>
+    <<py_potconn_local_list_jails>>
+    <<py_potconn_local_exec_command>>
+    <<py_potconn_local_put_file>>
+    <<py_potconn_local_fetch_file>>
+#+end_src
+
+*** Remote Pots
+
+Connecting to remote pots works almost like the SSH connection plugin - it is an extension of it. The difference is that you have to specify the name of the pot, and of course tell Ansible to use the =zilti.pot.pot_remote= connection plugin. Here's an example inventory file:
+
+#+name: remotepot-inventory
+#+begin_src fundamental :tangle tests/inventory :mkdirp yes
+[jails]
+testpot1@192.168.121.13 ansible_connection=zilti.pot.pot_remote
+#+end_src
+
+Be aware that the connection plugin will need to use a =become= plugin to copy files into and out of the pot.
+
+#+name: potconn-remote-docstr
+#+begin_src yaml :exports none
+    connection: sshjail
+    short_description: connect via ssh client binary to jail
+    description:
+        - This connection plugin allows ansible to communicate to the target machines via normal ssh command line.
+    author: Austin Hyde (@austinhyde)
+    version_added: historical
+    options:
+      host:
+          description: Hostname/ip to connect to.
+          default: inventory_hostname
+          vars:
+               - name: ansible_host
+               - name: ansible_ssh_host
+      host_key_checking:
+          description: Determines if ssh should check host keys
+          type: boolean
+          ini:
+              - section: defaults
+                key: 'host_key_checking'
+              - section: ssh_connection
+                key: 'host_key_checking'
+                version_added: '2.5'
+          env:
+              - name: ANSIBLE_HOST_KEY_CHECKING
+              - name: ANSIBLE_SSH_HOST_KEY_CHECKING
+                version_added: '2.5'
+          vars:
+              - name: ansible_host_key_checking
+                version_added: '2.5'
+              - name: ansible_ssh_host_key_checking
+                version_added: '2.5'
+      password:
+          description: Authentication password for the C(remote_user). Can be supplied as CLI option.
+          vars:
+              - name: ansible_password
+              - name: ansible_ssh_pass
+      sshpass_prompt:
+          description: Password prompt that sshpass should search for. Supported by sshpass 1.06 and up
+          default: ''
+          ini:
+              - section: 'ssh_connection'
+                key: 'sshpass_prompt'
+          env:
+              - name: ANSIBLE_SSHPASS_PROMPT
+          vars:
+              - name: ansible_sshpass_prompt
+          version_added: '2.10'
+      ssh_args:
+          description: Arguments to pass to all ssh cli tools
+          default: '-C -o ControlMaster=auto -o ControlPersist=60s'
+          ini:
+              - section: 'ssh_connection'
+                key: 'ssh_args'
+          env:
+              - name: ANSIBLE_SSH_ARGS
+          vars:
+              - name: ansible_ssh_args
+                version_added: '2.7'
+      ssh_common_args:
+          description: Common extra args for all ssh CLI tools
+          ini:
+              - section: 'ssh_connection'
+                key: 'ssh_common_args'
+                version_added: '2.7'
+          env:
+              - name: ANSIBLE_SSH_COMMON_ARGS
+                version_added: '2.7'
+          vars:
+              - name: ansible_ssh_common_args
+      ssh_executable:
+          default: ssh
+          description:
+            - This defines the location of the ssh binary. It defaults to ``ssh`` which will use the first ssh binary available in $PATH.
+            - This option is usually not required, it might be useful when access to system ssh is restricted,
+              or when using ssh wrappers to connect to remote hosts.
+          env: [{name: ANSIBLE_SSH_EXECUTABLE}]
+          ini:
+          - {key: ssh_executable, section: ssh_connection}
+          #const: ANSIBLE_SSH_EXECUTABLE
+          version_added: "2.2"
+          vars:
+              - name: ansible_ssh_executable
+                version_added: '2.7'
+      sftp_executable:
+          default: sftp
+          description:
+            - This defines the location of the sftp binary. It defaults to ``sftp`` which will use the first binary available in $PATH.
+          env: [{name: ANSIBLE_SFTP_EXECUTABLE}]
+          ini:
+          - {key: sftp_executable, section: ssh_connection}
+          version_added: "2.6"
+          vars:
+              - name: ansible_sftp_executable
+                version_added: '2.7'
+      scp_executable:
+          default: scp
+          description:
+            - This defines the location of the scp binary. It defaults to `scp` which will use the first binary available in $PATH.
+          env: [{name: ANSIBLE_SCP_EXECUTABLE}]
+          ini:
+          - {key: scp_executable, section: ssh_connection}
+          version_added: "2.6"
+          vars:
+              - name: ansible_scp_executable
+                version_added: '2.7'
+      scp_extra_args:
+          description: Extra exclusive to the ``scp`` CLI
+          vars:
+              - name: ansible_scp_extra_args
+          env:
+            - name: ANSIBLE_SCP_EXTRA_ARGS
+              version_added: '2.7'
+          ini:
+            - key: scp_extra_args
+              section: ssh_connection
+              version_added: '2.7'
+      sftp_extra_args:
+          description: Extra exclusive to the ``sftp`` CLI
+          vars:
+              - name: ansible_sftp_extra_args
+          env:
+            - name: ANSIBLE_SFTP_EXTRA_ARGS
+              version_added: '2.7'
+          ini:
+            - key: sftp_extra_args
+              section: ssh_connection
+              version_added: '2.7'
+      ssh_extra_args:
+          description: Extra exclusive to the 'ssh' CLI
+          vars:
+              - name: ansible_ssh_extra_args
+          env:
+            - name: ANSIBLE_SSH_EXTRA_ARGS
+              version_added: '2.7'
+          ini:
+            - key: ssh_extra_args
+              section: ssh_connection
+              version_added: '2.7'
+      reconnection_retries:
+          description: Number of attempts to connect.
+          default: 0
+          type: integer
+          env:
+            - name: ANSIBLE_SSH_RETRIES
+          ini:
+            - section: connection
+              key: retries
+            - section: ssh_connection
+              key: retries
+          vars:
+            - name: ansible_ssh_retries
+              version_added: '2.7'
+      port:
+          description: Remote port to connect to.
+          type: int
+          ini:
+            - section: defaults
+              key: remote_port
+          env:
+            - name: ANSIBLE_REMOTE_PORT
+          vars:
+            - name: ansible_port
+            - name: ansible_ssh_port
+      remote_user:
+          description:
+              - User name with which to login to the remote server, normally set by the remote_user keyword.
+              - If no user is supplied, Ansible will let the ssh client binary choose the user as it normally
+          ini:
+            - section: defaults
+              key: remote_user
+          env:
+            - name: ANSIBLE_REMOTE_USER
+          vars:
+            - name: ansible_user
+            - name: ansible_ssh_user
+      pipelining:
+          default: ANSIBLE_PIPELINING
+          description:
+            - Pipelining reduces the number of SSH operations required to execute a module on the remote server,
+              by executing many Ansible modules without actual file transfer.
+            - This can result in a very significant performance improvement when enabled.
+            - However this conflicts with privilege escalation (become).
+              For example, when using sudo operations you must first disable 'requiretty' in the sudoers file for the target hosts,
+              which is why this feature is disabled by default.
+          env:
+            - name: ANSIBLE_PIPELINING
+            #- name: ANSIBLE_SSH_PIPELINING
+          ini:
+            - section: defaults
+              key: pipelining
+            #- section: ssh_connection
+            #  key: pipelining
+          type: boolean
+          vars:
+            - name: ansible_pipelining
+            - name: ansible_ssh_pipelining
+      private_key_file:
+          description:
+              - Path to private key file to use for authentication
+          ini:
+            - section: defaults
+              key: private_key_file
+          env:
+            - name: ANSIBLE_PRIVATE_KEY_FILE
+          vars:
+            - name: ansible_private_key_file
+            - name: ansible_ssh_private_key_file
+      control_path:
+        description:
+          - This is the location to save ssh's ControlPath sockets, it uses ssh's variable substitution.
+          - Since 2.3, if null, ansible will generate a unique hash. Use `%(directory)s` to indicate where to use the control dir path setting.
+        env:
+          - name: ANSIBLE_SSH_CONTROL_PATH
+        ini:
+          - key: control_path
+            section: ssh_connection
+        vars:
+          - name: ansible_control_path
+            version_added: '2.7'
+      control_path_dir:
+        default: ~/.ansible/cp
+        description:
+          - This sets the directory to use for ssh control path if the control path setting is null.
+          - Also, provides the `%(directory)s` variable for the control path setting.
+        env:
+          - name: ANSIBLE_SSH_CONTROL_PATH_DIR
+        ini:
+          - section: ssh_connection
+            key: control_path_dir
+        vars:
+          - name: ansible_control_path_dir
+            version_added: '2.7'
+      sftp_batch_mode:
+        default: 'yes'
+        description: 'TODO: write it'
+        env: [{name: ANSIBLE_SFTP_BATCH_MODE}]
+        ini:
+        - {key: sftp_batch_mode, section: ssh_connection}
+        type: bool
+        vars:
+          - name: ansible_sftp_batch_mode
+            version_added: '2.7'
+      ssh_transfer_method:
+        default: smart
+        description:
+            - "Preferred method to use when transferring files over ssh"
+            - Setting to 'smart' (default) will try them in order, until one succeeds or they all fail
+            - Using 'piped' creates an ssh pipe with ``dd`` on either side to copy the data
+        choices: ['sftp', 'scp', 'piped', 'smart']
+        env: [{name: ANSIBLE_SSH_TRANSFER_METHOD}]
+        ini:
+            - {key: transfer_method, section: ssh_connection}
+      scp_if_ssh:
+        default: smart
+        description:
+          - "Prefered method to use when transfering files over ssh"
+          - When set to smart, Ansible will try them until one succeeds or they all fail
+          - If set to True, it will force 'scp', if False it will use 'sftp'
+        env: [{name: ANSIBLE_SCP_IF_SSH}]
+        ini:
+        - {key: scp_if_ssh, section: ssh_connection}
+        vars:
+          - name: ansible_scp_if_ssh
+            version_added: '2.7'
+      use_tty:
+        version_added: '2.5'
+        default: 'yes'
+        description: add -tt to ssh commands to force tty allocation
+        env: [{name: ANSIBLE_SSH_USETTY}]
+        ini:
+        - {key: usetty, section: ssh_connection}
+        type: bool
+        vars:
+          - name: ansible_ssh_use_tty
+            version_added: '2.7'
+      pkcs11_provider:
+        version_added: '2.12'
+        default: ''
+        description:
+          - PKCS11 SmartCard provider such as opensc, example: /usr/local/lib/opensc-pkcs11.so
+          - Requires sshpass version 1.06+, sshpass must support the -P option.
+        env: [{name: ANSIBLE_PKCS11_PROVIDER}]
+        ini:
+          - {key: pkcs11_provider, section: ssh_connection}
+        vars:
+          - name: ansible_ssh_pkcs11_provider
+      timeout:
+        default: 10
+        description:
+            - This is the default ammount of time we will wait while establishing an ssh connection
+            - It also controls how long we can wait to access reading the connection once established (select on the socket)
+        env:
+            - name: ANSIBLE_TIMEOUT
+            - name: ANSIBLE_SSH_TIMEOUT
+              version_added: '2.11'
+        ini:
+            - key: timeout
+              section: defaults
+            - key: timeout
+              section: ssh_connection
+              version_added: '2.11'
+        vars:
+            - name: ansible_ssh_timeout
+              version_added: '2.11'
+        cli:
+            - name: timeout
+        type: integer
+#+end_src
+
+#+begin_src python :noweb no-export :tangle zilti/pot/plugins/connection/pot_remote.py :mkdirp yes :exports none
+<<connection-header>>
+
+DOCUMENTATION = r"""
+<<potconn-remote-docstr>>
+"""
+
+EXAMPLES = r"""
+"""
+
+
+class ConnectionBase(SSHConnection):
+    pass
+
+class Connection(ConnectionBase):
+    transport = 'zilti.pot.pot_remote'
+
+    def __init__(self, *args, **kwargs):
+        super(Connection, self).__init__(*args,**kwargs)
+        # self.host == jailname@jailhost
+        self.inventory_hostname = self.host
+        self.jailspec, self.host = self.host.split('@', 1)
+        # self.jailspec == jailname
+        # self.host == jailhost
+        # this way SSHConnection parent class uses the jailhost as the SSH remote host
+
+        self.executable = "/usr/local/bin/pot"
+        if self.jailspec not in self.list_jails():
+            raise AnsibleError("jail %s does not exist in %s on host %s" % (self.jailspec, self.list_jails(), self.host))
+
+    def list_jails(self):
+        rc, out, err = self._jailhost_command(" ".join([self.executable, 'ls']))
+        out = out.decode('utf-8')
+        filtered = filter(lambda x: x.startswith("pot name"), out.split("\n"))
+        jailnames = list(map(lambda x: x.split(":")[1].strip(), filtered))
+        return jailnames
+
+    def pot_root(self):
+        rc, out, err = self._jailhost_command(" ".join([self.executable, 'config', '-g', 'fs_root']))
+        return out.decode('utf-8').split("=")[1].strip()
+
+    def _strip_sleep(self, cmd):
+        # Get the command without sleep
+        cmd = cmd.split(' && sleep 0', 1)[0]
+        # Add back trailing quote
+        cmd = '%s%s' % (cmd, "'")
+        return cmd
+
+    def _jailhost_command(self, cmd):
+        return super(Connection, self).exec_command(cmd, in_data=None, sudoable=True)
+
+    def exec_command(self, cmd, in_data=None, executable='/bin/sh', sudoable=True):
+        slpcmd = False
+
+        if '&& sleep 0' in cmd:
+            slpcmd = True
+            cmd = self._strip_sleep(cmd)
+
+        cmd = ' '.join([executable, '-c', pipes.quote(cmd)])
+        display.vvv("NEW COMMAND: {0}".format(cmd))
+        if slpcmd:
+            cmd = " ".join([self.executable, 'exec', '-p', self.jailspec, cmd, '&& sleep 0'])
+        else:
+            cmd = " ".join([self.executable, 'exec', '-p', self.jailspec, cmd])
+
+        if self._play_context.become:
+            plugin = self.become
+            shell = get_shell_plugin(executable=executable)
+            cmd = plugin.build_become_command(cmd, shell)
+
+        display.vvv(u"EXEC {0}".format(cmd))
+        rc, out, err = super(Connection, self).exec_command(cmd, in_data, True)
+        display.vvv(u"RESULT {0} ERR {1}".format(out, err))
+        return rc, out, err
+
+    @contextmanager
+    def tempfile(self):
+        code, stdout, stderr = self._jailhost_command('mktemp')
+        if code != 0:
+            raise AnsibleError("failed to make temp file:\n%s\n%s" % (stdout, stderr))
+        tmp = to_text(stdout.strip().split(b'\n')[-1])
+
+        code, stdout, stderr = self._jailhost_command(' '.join(['chmod 0644', tmp]))
+        if code != 0:
+            raise AnsibleError("failed to make temp file %s world readable:\n%s\n%s" % (tmp, stdout, stderr))
+
+        yield tmp
+
+        code, stdout, stderr = self._jailhost_command(' '.join(['rm', tmp]))
+        if code != 0:
+            raise AnsibleError("failed to remove temp file %s:\n%s\n%s" % (tmp, stdout, stderr))
+
+    def _normalize_path(self, path, prefix='/'):
+        if path.startswith("~"):
+            path = "/root/{0}".format(path)
+        if not path.startswith(os.path.sep):
+            path = os.path.join(os.path.sep, path)
+        normpath = os.path.normpath(path)
+        return os.path.join(prefix, normpath[1:])
+
+    def _copy_file(self, direction, from_file, to_file, executable='/bin/sh'):
+        copycmd= ' '.join([self.executable, 'copy-'+direction, '-F', '-p', self.jailspec, '-s', from_file, '-d', to_file])
+#        if self._play_context.become:
+        plugin = self.become
+        shell = get_shell_plugin(executable=executable)
+        copycmd = plugin.build_become_command(copycmd, shell)
+
+        display.vvv(u"REMOTE COPY {0} TO {1}".format(from_file, to_file), host=self.inventory_hostname)
+        code, stdout, stderr = self._jailhost_command(copycmd)
+        if code != 0:
+            raise AnsibleError("failed to copy file from %s to %s:\n%s\n%s" % (from_file, to_file, stdout, stderr))
+
+    def put_file(self, in_path, out_path):
+        ''' transfer a file from local to remote jail '''
+        out_path = self._normalize_path(out_path)#, "%s/jails/%s/m" % (self.pot_root(), self.jailspec))
+
+        with self.tempfile() as tmp:
+            super(Connection, self).put_file(in_path, tmp)
+            display.vvv("Jail %s: fetching %s to %s" % (self.jailspec, tmp, out_path))
+            self._copy_file('in', tmp, out_path)
+
+    def fetch_file(self, in_path, out_path):
+        ''' fetch a file from remote to local '''
+        in_path = self._normalize_path(in_path)#, "%s/jails/%s/m" % (self.pot_root(), self.jailspec))
+
+        with self.tempfile() as tmp:
+            display.vvv("Jail %s: fetching %s to %s" % (self.jailspec, in_path, tmp))
+            self._copy_file('out', in_path, tmp)
+            super(Connection, self).fetch_file(tmp, out_path)
 #+end_src
 
 * Dependencies
@@ -887,10 +1534,16 @@ Needs the =community.general= collection.
       name: 13.1
       release: 13.1
 
+  - zilti.pot.pot_fscomp:
+      name: testfs
+
   - zilti.pot.pot_jail:
       name: testpot1
       base: 13.1
-      state: present
+      state: started
+      mounts:
+      - target: /opt
+        fscomp: testfs
 #+end_src
 
 * License
@@ -1580,27 +2233,34 @@ Daniel Ziltener, Code & Magic UG
 
 * Ansible Galaxy Metadata
 
+#+begin_src yaml :tangle zilti/pot/meta/runtime.yml :mkdirp yes
+requires_ansible: ">=2.9"
+#+end_src
+
 #+begin_src yaml :tangle zilti/pot/galaxy.yml :mkdirp yes
 namespace: zilti
 name: pot
-version: 0.1.0
+version: 0.4.0
 
 authors:
   - Daniel Ziltener <dziltener@lyrion.ch>
+
+dependencies:
+  community.general: "*"
 
 tags:
   - freebsd
   - jails
   - pot
 
-readme: README.org
-license_file: LICENSE
+readme: README.md
+license: GPL-3.0-or-later
 description: Roles and modules for installing and using Pot
 
-repository: https://github.com/zilti/pot
-issues: https://github.com/zilti/pot/issues
-documentation: https://github.com/zilti/pot
-homepage: https://github.com/zilti/pot
+repository: https://github.com/zilti/ansible-pot
+issues: https://github.com/zilti/ansible-pot/issues
+documentation: https://github.com/zilti/ansible-pot
+homepage: https://github.com/zilti/ansible-pot
 #+end_src
 
 #+begin_src yaml :tangle zilti/pot/roles/pot/meta/main.yml :mkdirp yes
@@ -1620,7 +2280,7 @@ galaxy_info:
   # - GPL-3.0-only
   # - Apache-2.0
   # - CC-BY-4.0
-  license: GPL-3.0-only
+  license: GPL-3.0-or-later
 
   min_ansible_version: 2.9
 
@@ -1665,9 +2325,31 @@ import re
 import subprocess
 from os.path import exists
 from ansible.module_utils.basic import AnsibleModule
+from ansible.errors import AnsibleError
 
 
 __metaclass__ = type
+
+#+end_src
+
+#+name: connection-header
+#+begin_src python
+# -*- Coding: utf-8 -*-
+from __future__ import absolute_import, division, print_function
+import os
+import pipes
+from ansible.errors import AnsibleError
+from ansible.plugins.connection.ssh import Connection as SSHConnection
+from ansible.module_utils._text import to_text
+from ansible.plugins.loader import get_shell_plugin
+from ansible.utils.display import Display
+from contextlib import contextmanager
+
+display = Display()
+
+
+__metaclass__ = type
+
 #+end_src
 
 #+name: vardict
@@ -1681,8 +2363,10 @@ __metaclass__ = type
                   (requiredp (cl-fourth row))
                   (default (cl-fifth row)))
              (if (> (length choices) 0)
-                 (format "    %s=dict(default=%s, type=%s, choices=[%s])" variable default type choices)
-               (format "    %s=dict(default=%s, type=%s)" variable default type))
+                 (if (string= type "list")
+                     (format "    %s=dict(default=%s, type=%S, elements=%S)" variable default type choices)
+                     (format "    %s=dict(default=%s, type=%S, choices=[%s])" variable default type choices))
+               (format "    %s=dict(default=%s, type=%S)" variable default type))
              ))
          srctbl ",\n")
         ")\nmodule = AnsibleModule(argument_spec=arg_spec, supports_check_mode=True)")
@@ -1708,7 +2392,9 @@ __metaclass__ = type
              (when (> (length default) 0)
                (concat "    default: " default "\n"))
              (when (> (length choices) 0)
-               (concat "    choices: [ " choices " ]\n"))
+               (if (string= type "list")
+                   (concat "    elements: " choices "\n")
+                   (concat "    choices: [ " choices " ]\n")))
              )
      ))
  srctbl "")
@@ -1726,11 +2412,17 @@ __metaclass__ = type
 #+begin_src emacs-lisp :var srctbl=bridge-create-args :var dict="switches" :var kwargs="self.params" :colnames yes :results raw
 (concat (mapconcat
          (lambda (row)
-           (let ((argument (car row))
-                 (switch (cadr row)))
-           (concat (format "if %S in %s and %s[%S]:\n" argument kwargs kwargs argument)
-                   (format "    %s.append(%S)\n" dict switch)
-                   (format "    %s.append(%s[%S])\n" dict kwargs argument))))
+           (let ((argument (cl-first row))
+                 (switch (cl-second row))
+                 (type (cl-third row)))
+             (if (string= type "multi")
+                 (concat (format "for elem in %s[%S]:\n" kwargs argument)
+                         (format "    %s.append(%S)\n" dict switch)
+                         (format "    %s.append(elem)\n" dict))
+               (concat (format "if %S in %s and %s[%S]:\n" argument kwargs kwargs argument)
+                       (format "    %s.append(%S)\n" dict switch)
+                       (when (not (string= type "flag"))
+                       (format "    %s.append(%s[%S])\n" dict kwargs argument))))))
          srctbl "\n"))
 #+end_src
 
