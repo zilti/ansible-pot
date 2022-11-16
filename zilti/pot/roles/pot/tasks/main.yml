@@ -63,3 +63,10 @@
   - pot.enabled|bool
   - pot.vnet_enabled|bool
   - not potintel.vnet_initialized|bool
+
+- name: Install ansible-managed Flavour
+  copy:
+    dest: '/usr/local/etc/pot/flavours/ansible-managed.sh'
+    src: 'ansible-managed.sh'
+    mode: '0755'
+  become: yes

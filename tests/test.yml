@@ -24,3 +24,7 @@
       mounts:
       - target: /opt
         fscomp: testfs
+      ports:
+      - protocol: tcp
+        port: 80
+        pot_port: 80

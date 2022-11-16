@@ -38,9 +38,11 @@ options:
       required: False
       default: False
   ip:
+      description:
+        - Defaults to 'auto'
       type: list
       required: False
-      default: None
+      default: []
       elements: str
   network_stack:
       type: str
@@ -74,12 +76,20 @@ options:
       required: False
       default: None
   flavour:
-      type: str
+      type: list
       required: False
-      default: None
+      default: ['ansible-managed']
+      elements: str
   mounts:
       description:
         - Things to mount
+      type: list
+      required: False
+      default: []
+      elements: dict
+  ports:
+      description:
+        - Ports to map
       type: list
       required: False
       default: []
@@ -115,7 +125,13 @@ class PotJail(object):
         cmd = [self.executable[0], "ls"]
         rc, out, err = self._exec(cmd)
         filtered = filter(lambda x: x.startswith("pot name"), out.split("\n"))
-        return self.params["name"] in map(lambda x: x.split(":")[1].strip(), filtered)
+        return self.params["name"] in list(map(lambda x: x.split(":")[1].strip(), filtered))
+    def get_info(self, key):
+        cmd = [self.executable[0], "info", "-p", self.params["name"]]
+        rc, out, err = self._exec(cmd)
+        splat = map(lambda x: x.strip(), out.split("\n"))
+        filtered = list(filter(lambda x: x.startswith(key), splat))
+        return filtered[0].split(":")[1].strip()
     def has_mount(self, mountpoint, mounttarget):
         jaildir = self.pot_root()+'/jails/'+self.params["name"]
         jailroot = jaildir+'/m'
@@ -146,9 +162,9 @@ class PotJail(object):
                 cmd.append("-t")
                 cmd.append(self.params["type"])
             
-            if "flavour" in self.params and self.params["flavour"]:
+            for elem in self.params["flavour"]:
                 cmd.append("-f")
-                cmd.append(self.params["flavour"])
+                cmd.append(elem)
             
             if "pot" in self.params and self.params["pot"]:
                 cmd.append("-P")
@@ -246,6 +262,25 @@ class PotJail(object):
             else:
                 changed = changed or False
         return changed, out, err
+    def map_ports(self):
+        if not "ports" in self.params:
+            return False, None, None
+    
+        changed = True
+        rc = 0
+        out = None
+        err = None
+        cmd = [self.executable[0], 'export-ports', '-p', self.params["name"]]
+        for port in self.params["ports"]:
+            portstr = "{0}".format(port["port"])
+            if "protocol" in port:
+                portstr = "{0}:{1}".format(port["protocol"], portstr)
+            if "pot_port" in port:
+                portstr = "{0}:{1}".format(portstr, port["pot_port"])
+            cmd.append('-e')
+            cmd.append(portstr)
+        rc, out, err = self._exec(cmd)
+        return changed, out, err
 
 
 def main():
@@ -253,7 +288,7 @@ def main():
         name=dict(default=None, type="str"),
         state=dict(default='present', type="str", choices=['present', 'absent', 'started', 'stopped', 'restarted']),
         ignore=dict(default=False, type="bool"),
-        ip=dict(default=None, type="list", elements="str"),
+        ip=dict(default=[], type="list", elements="str"),
         network_stack=dict(default='dual', type="str", choices=['ipv4', 'ipv6', 'dual']),
         network_type=dict(default='inherit', type="str", choices=['inherit', 'alias', 'public-bridge', 'private-bridge']),
         bridge_name=dict(default=None, type="str"),
@@ -261,8 +296,9 @@ def main():
         pot=dict(default=None, type="str"),
         type=dict(default='multi', type="str", choices=['single', 'multi']),
         level=dict(default=None, type="int"),
-        flavour=dict(default=None, type="str"),
-        mounts=dict(default=[], type="list", elements="dict"))
+        flavour=dict(default=['ansible-managed'], type="list", elements="str"),
+        mounts=dict(default=[], type="list", elements="dict"),
+        ports=dict(default=[], type="list", elements="dict"))
     module = AnsibleModule(argument_spec=arg_spec, supports_check_mode=True)
     jail = PotJail(module, params=module.params)
     changed, out, err = False, None, None
@@ -274,23 +310,30 @@ def main():
         c1, o1, e1 = jail.create()
         c2, o2, e2 = jail.start()
         changed = c1 or c2
-        out = "%s\n%s" % o1, o2
-        err = "%s\n%s" % e1, e2
+        out = (o1 and o2 and o1+'\n'+o2) or o1 or o2
+        err = (e1 and e2 and e1+'\n'+e2) or e1 or e2
     elif module.params["state"] == "stopped":
         c1, o1, e1 = jail.create()
         c2, o2, e2 = jail.stop()
         changed = c1 or c2
-        out = "%s\n%s" % o1, o2
-        err = "%s\n%s" % e1, e2
+        out = (o1 and o2 and o1+'\n'+o2) or o1 or o2
+        err = (e1 and e2 and e1+'\n'+e2) or e1 or e2
     elif module.params["state"] == "restarted":
         c1, o1, e1 = jail.create()
         c2, o2, e2 = jail.stop()
         c3, o3, e3 = jail.start()
         changed = c1 or c2 or c3
-        out = "%s\n%s\n%s" % o1, o2, o3
-        err = "%s\n%s\n%s" % e1, e2, e3
+        out = ''
+        err = ''
+        out = (o1 and o1+'\n' or '')+(o2 and o2+'\n' or '')+(o3 and o3+'\n' or '')
+        err = (e1 and e1+'\n' or '')+(e2 and e2+'\n' or '')+(e3 and e3+'\n' or '')
     if module.params["state"] != "absent":
         c1, o1, e1 = jail.mounts()
+        changed = changed or c1
+        out = (out and out+"\n"+o1) or o1
+        err = (err and err+"\n"+e1) or e1
+
+        c1, o1, e1 = jail.map_ports()
         changed = changed or c1
         out = (out and out+"\n"+o1) or o1
         err = (err and err+"\n"+e1) or e1
