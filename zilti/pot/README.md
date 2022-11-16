@@ -1,49 +1,50 @@
 
 # Table of Contents
 
-1.  [Requirements](#orgb78de77)
-2.  [Role Variables](#orgcd6ddce)
-    1.  [Pot Server](#org7d5d27a)
-    2.  [Collected Variables](#orgf7a5ed3)
-    3.  [Pot Configuration Template](#org322305e)
-3.  [Plugins](#org37a5944)
-    1.  [Bridges Module](#org4b96792)
-        1.  [Examples](#org74e7ed2)
-    2.  [FS Components Module](#org26c483c)
-        1.  [Examples](#orgb5281a4)
-    3.  [Bases Module](#orgf63b004)
-        1.  [Examples](#org5471e2e)
-    4.  [Jails Module](#orgdb9b0df)
-        1.  [Examples](#org3a5689a)
-    5.  [Pot Connection](#org054cbf3)
-        1.  [Local Pots](#org01947c4)
-        2.  [Remote Pots](#org2c0681c)
-4.  [Dependencies](#org29c0d9e)
-5.  [Example Playbook](#org80d9588)
-6.  [License](#org47cdf7d)
-7.  [Author Information](#orgf6d5f3c)
-8.  [Ansible Galaxy Metadata](#org4fd595c)
+1.  [Requirements](#orgfe504a2)
+2.  [Role Variables](#org70adc95)
+    1.  [Pot Server](#orga2f3896)
+    2.  [Collected Variables](#orga80ee73)
+    3.  [Pot Configuration Template](#org2c72c8f)
+3.  [Plugins](#org1b25202)
+    1.  [Bridges Module](#orgc3790d1)
+        1.  [Examples](#org6094cff)
+    2.  [FS Components Module](#org38f4202)
+        1.  [Examples](#org79fbbee)
+    3.  [Bases Module](#org2a92927)
+        1.  [Examples](#org95938a8)
+    4.  [Jails Module](#orgbc98442)
+        1.  [Examples](#orgc1a1eb3)
+        2.  [`ansible-managed` Flavour](#org5458916)
+    5.  [Pot Connection](#org2326701)
+        1.  [Local Pots](#orgf66df03)
+        2.  [Remote Pots](#org3d0d45e)
+4.  [Dependencies](#org4d54577)
+5.  [Example Playbook](#org7732a39)
+6.  [License](#org941ef9b)
+7.  [Author Information](#org498b804)
+8.  [Ansible Galaxy Metadata](#org12c6e22)
 
-I am a role to manage your Pot jails on FreeBSD. My source is located in the [pot.org](https://github.com/zilti/pot/blob/master/pot.org) file.
+I am a role to manage your Pot jails on FreeBSD. My source is located in the [pot.org](https://github.com/zilti/ansible-pot/blob/master/pot.org) file.
 
 
-<a id="orgb78de77"></a>
+<a id="orgfe504a2"></a>
 
 # Requirements
 
 None.
 
 
-<a id="orgcd6ddce"></a>
+<a id="org70adc95"></a>
 
 # Role Variables
 
 
-<a id="org7d5d27a"></a>
+<a id="orga2f3896"></a>
 
 ## Pot Server
 
-<table id="org433fe28" border="2" cellspacing="0" cellpadding="6" rules="groups" frame="hsides">
+<table id="orgc031662" border="2" cellspacing="0" cellpadding="6" rules="groups" frame="hsides">
 
 
 <colgroup>
@@ -208,11 +209,11 @@ None.
       extif: 'em0'
 
 
-<a id="orgf7a5ed3"></a>
+<a id="orga80ee73"></a>
 
 ## Collected Variables
 
-<table id="orgb60ffa4" border="2" cellspacing="0" cellpadding="6" rules="groups" frame="hsides">
+<table id="org312c780" border="2" cellspacing="0" cellpadding="6" rules="groups" frame="hsides">
 
 
 <colgroup>
@@ -292,7 +293,7 @@ None.
       jails: '{{ ansible_local.pot.jails|default("{}") }}'
 
 
-<a id="org322305e"></a>
+<a id="org2c72c8f"></a>
 
 ## Pot Configuration Template
 
@@ -367,18 +368,18 @@ None.
     # EOF
 
 
-<a id="org37a5944"></a>
+<a id="org1b25202"></a>
 
 # Plugins
 
 
-<a id="org4b96792"></a>
+<a id="orgc3790d1"></a>
 
 ## Bridges Module
 
 Pot bridges created with `pot create-private-bridge`.
 
-<table id="org7de5321" border="2" cellspacing="0" cellpadding="6" rules="groups" frame="hsides">
+<table id="org1a44678" border="2" cellspacing="0" cellpadding="6" rules="groups" frame="hsides">
 
 
 <colgroup>
@@ -448,18 +449,18 @@ Pot bridges created with `pot create-private-bridge`.
 </table>
 
 
-<a id="org74e7ed2"></a>
+<a id="org6094cff"></a>
 
 ### Examples
 
 
-<a id="org26c483c"></a>
+<a id="org38f4202"></a>
 
 ## FS Components Module
 
 The ones created with `pot create-fscomp`.
 
-<table id="org763eacd" border="2" cellspacing="0" cellpadding="6" rules="groups" frame="hsides">
+<table id="orgf1e91b2" border="2" cellspacing="0" cellpadding="6" rules="groups" frame="hsides">
 
 
 <colgroup>
@@ -519,18 +520,18 @@ The ones created with `pot create-fscomp`.
 </table>
 
 
-<a id="orgb5281a4"></a>
+<a id="org79fbbee"></a>
 
 ### Examples
 
 
-<a id="orgf63b004"></a>
+<a id="org2a92927"></a>
 
 ## Bases Module
 
 The ones created with `pot create-base`.
 
-<table id="orgc60625b" border="2" cellspacing="0" cellpadding="6" rules="groups" frame="hsides">
+<table id="orgb0fcd1a" border="2" cellspacing="0" cellpadding="6" rules="groups" frame="hsides">
 
 
 <colgroup>
@@ -600,18 +601,18 @@ The ones created with `pot create-base`.
 </table>
 
 
-<a id="org5471e2e"></a>
+<a id="org95938a8"></a>
 
 ### Examples
 
 
-<a id="orgdb9b0df"></a>
+<a id="orgbc98442"></a>
 
 ## Jails Module
 
 For each jail, you can supply a number of arguments.
 
-<table id="orgae89eef" border="2" cellspacing="0" cellpadding="6" rules="groups" frame="hsides">
+<table id="org78d0c19" border="2" cellspacing="0" cellpadding="6" rules="groups" frame="hsides">
 
 
 <colgroup>
@@ -674,8 +675,8 @@ For each jail, you can supply a number of arguments.
 <td class="org-left">list</td>
 <td class="org-left">str</td>
 <td class="org-left">#f</td>
-<td class="org-left">None</td>
-<td class="org-left">&#xa0;</td>
+<td class="org-left">[]</td>
+<td class="org-left">Defaults to 'auto'</td>
 </tr>
 
 
@@ -751,10 +752,10 @@ For each jail, you can supply a number of arguments.
 
 <tr>
 <td class="org-left">flavour</td>
+<td class="org-left">list</td>
 <td class="org-left">str</td>
-<td class="org-left">&#xa0;</td>
 <td class="org-left">#f</td>
-<td class="org-left">None</td>
+<td class="org-left">['ansible-managed']</td>
 <td class="org-left">&#xa0;</td>
 </tr>
 
@@ -767,10 +768,22 @@ For each jail, you can supply a number of arguments.
 <td class="org-left">[]</td>
 <td class="org-left">Things to mount</td>
 </tr>
+
+
+<tr>
+<td class="org-left">ports</td>
+<td class="org-left">list</td>
+<td class="org-left">dict</td>
+<td class="org-left">#f</td>
+<td class="org-left">[]</td>
+<td class="org-left">Ports to map</td>
+</tr>
 </tbody>
 </table>
 
-<table id="orgfcce872" border="2" cellspacing="0" cellpadding="6" rules="groups" frame="hsides">
+Options for mounts:
+
+<table id="orgb9ee34c" border="2" cellspacing="0" cellpadding="6" rules="groups" frame="hsides">
 
 
 <colgroup>
@@ -859,24 +872,102 @@ For each jail, you can supply a number of arguments.
 </tbody>
 </table>
 
+Options for ports:
 
-<a id="org3a5689a"></a>
+<table border="2" cellspacing="0" cellpadding="6" rules="groups" frame="hsides">
+
+
+<colgroup>
+<col  class="org-left" />
+
+<col  class="org-left" />
+
+<col  class="org-left" />
+
+<col  class="org-left" />
+
+<col  class="org-left" />
+
+<col  class="org-left" />
+</colgroup>
+<thead>
+<tr>
+<th scope="col" class="org-left">Variable</th>
+<th scope="col" class="org-left">Type</th>
+<th scope="col" class="org-left">Choices</th>
+<th scope="col" class="org-left">Required?</th>
+<th scope="col" class="org-left">Default</th>
+<th scope="col" class="org-left">Info</th>
+</tr>
+</thead>
+
+<tbody>
+<tr>
+<td class="org-left">protocol</td>
+<td class="org-left">str</td>
+<td class="org-left">'tcp', 'udp'</td>
+<td class="org-left">#f</td>
+<td class="org-left">'tcp'</td>
+<td class="org-left">&#xa0;</td>
+</tr>
+
+
+<tr>
+<td class="org-left">port</td>
+<td class="org-left">int</td>
+<td class="org-left">&#xa0;</td>
+<td class="org-left">#t</td>
+<td class="org-left">None</td>
+<td class="org-left">The port to export</td>
+</tr>
+
+
+<tr>
+<td class="org-left">pot<sub>port</sub></td>
+<td class="org-left">int</td>
+<td class="org-left">&#xa0;</td>
+<td class="org-left">#f</td>
+<td class="org-left">None</td>
+<td class="org-left">dynamically allocated by default</td>
+</tr>
+</tbody>
+</table>
+
+
+<a id="orgc1a1eb3"></a>
 
 ### Examples
 
 
-<a id="org054cbf3"></a>
+<a id="org5458916"></a>
+
+### `ansible-managed` Flavour
+
+A freshly created pot is somewhat useless if you want to manage it with Ansible, because there is no Python installation, and no sudo.
+
+    pkg install -y python3 sudo
+    pkg clean -ayq
+
+    - name: Install ansible-managed Flavour
+      copy:
+        dest: '/usr/local/etc/pot/flavours/ansible-managed.sh'
+        src: 'ansible-managed.sh'
+        mode: '0755'
+      become: yes
+
+
+<a id="org2326701"></a>
 
 ## Pot Connection
 
 This collection also provides a connection plugin to execute commands inside a Pot. Two variants are provided: one for local pots, and one for remote pots.
 
 
-<a id="org01947c4"></a>
+<a id="orgf66df03"></a>
 
 ### Local Pots
 
-<table id="org1318be5" border="2" cellspacing="0" cellpadding="6" rules="groups" frame="hsides">
+<table id="org65a08cf" border="2" cellspacing="0" cellpadding="6" rules="groups" frame="hsides">
 
 
 <colgroup>
@@ -928,7 +1019,7 @@ This collection also provides a connection plugin to execute commands inside a P
 1.  Examples
 
 
-<a id="org2c0681c"></a>
+<a id="org3d0d45e"></a>
 
 ### Remote Pots
 
@@ -940,14 +1031,14 @@ Connecting to remote pots works almost like the SSH connection plugin - it is an
 Be aware that the connection plugin will need to use a `become` plugin to copy files into and out of the pot.
 
 
-<a id="org29c0d9e"></a>
+<a id="org4d54577"></a>
 
 # Dependencies
 
 Needs the `community.general` collection.
 
 
-<a id="org80d9588"></a>
+<a id="org7732a39"></a>
 
 # Example Playbook
 
@@ -977,23 +1068,27 @@ Needs the `community.general` collection.
           mounts:
           - target: /opt
     	fscomp: testfs
+          ports:
+          - protocol: tcp
+    	port: 80
+    	pot_port: 80
 
 
-<a id="org47cdf7d"></a>
+<a id="org941ef9b"></a>
 
 # License
 
 GPL3.0
 
 
-<a id="orgf6d5f3c"></a>
+<a id="org498b804"></a>
 
 # Author Information
 
 Daniel Ziltener, Code & Magic UG
 
 
-<a id="org4fd595c"></a>
+<a id="org12c6e22"></a>
 
 # Ansible Galaxy Metadata
 
@@ -1001,7 +1096,7 @@ Daniel Ziltener, Code & Magic UG
 
     namespace: zilti
     name: pot
-    version: 0.4.0
+    version: 0.5.0
     
     authors:
       - Daniel Ziltener <dziltener@lyrion.ch>

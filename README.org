@@ -1,7 +1,7 @@
-# Created 2022-11-16 Mi 15:46
+# Created 2022-11-16 Mi 19:14
 #+title: Ansible Pot
 #+author: Daniel Ziltener
-I am a role to manage your Pot jails on FreeBSD. My source is located in the [[https://github.com/zilti/pot/blob/master/pot.org][pot.org]] file.
+I am a role to manage your Pot jails on FreeBSD. My source is located in the [[https://github.com/zilti/ansible-pot/blob/master/pot.org][pot.org]] file.
 
 * Requirements
 
@@ -192,21 +192,24 @@ The ones created with ~pot create-base~.
 For each jail, you can supply a number of arguments.
 
 #+name: jail-vars
-| Variable      | Type | Choices                                                | Required? | Default   | Info              |
-|---------------+------+--------------------------------------------------------+-----------+-----------+-------------------|
-| name          | str  |                                                        | #t        | None      | The jail name     |
-| state         | str  | 'present', 'absent', 'started', 'stopped', 'restarted' | #f        | 'present' |                   |
-| ignore        | bool |                                                        | #f        | False     | Ignore this task? |
-| ip            | list | str                                                    | #f        | None      |                   |
-| network_stack | str  | 'ipv4', 'ipv6', 'dual'                                 | #f        | 'dual'    |                   |
-| network_type  | str  | 'inherit', 'alias', 'public-bridge', 'private-bridge'  | #f        | 'inherit' |                   |
-| bridge_name   | str  |                                                        | #f        | None      |                   |
-| base          | str  |                                                        | #t        | None      |                   |
-| pot           | str  |                                                        | #f        | None      |                   |
-| type          | str  | 'single', 'multi'                                      | #f        | 'multi'   |                   |
-| level         | int  |                                                        | #f        | None      |                   |
-| flavour       | str  |                                                        | #f        | None      |                   |
-| mounts        | list | dict                                                   | #f        | []        | Things to mount   |
+| Variable      | Type | Choices                                                | Required? | Default             | Info               |
+|---------------+------+--------------------------------------------------------+-----------+---------------------+--------------------|
+| name          | str  |                                                        | #t        | None                | The jail name      |
+| state         | str  | 'present', 'absent', 'started', 'stopped', 'restarted' | #f        | 'present'           |                    |
+| ignore        | bool |                                                        | #f        | False               | Ignore this task?  |
+| ip            | list | str                                                    | #f        | []                  | Defaults to 'auto' |
+| network_stack | str  | 'ipv4', 'ipv6', 'dual'                                 | #f        | 'dual'              |                    |
+| network_type  | str  | 'inherit', 'alias', 'public-bridge', 'private-bridge'  | #f        | 'inherit'           |                    |
+| bridge_name   | str  |                                                        | #f        | None                |                    |
+| base          | str  |                                                        | #t        | None                |                    |
+| pot           | str  |                                                        | #f        | None                |                    |
+| type          | str  | 'single', 'multi'                                      | #f        | 'multi'             |                    |
+| level         | int  |                                                        | #f        | None                |                    |
+| flavour       | list | str                                                    | #f        | ['ansible-managed'] |                    |
+| mounts        | list | dict                                                   | #f        | []                  | Things to mount    |
+| ports         | list | dict                                                   | #f        | []                  | Ports to map       |
+
+Options for mounts:
 
 #+name: jail-mount-vars
 | Variable | Type | Choices    | Required? | Default | Info                                               |
@@ -218,7 +221,32 @@ For each jail, you can supply a number of arguments.
 | direct   | bool |            | #f        | False   | change the ZFS mount point instead of using nullfs |
 | mode     | str  | 'ro', 'rw' | #f        | 'rw'    | Mount as read-only or read-write?                  |
 
+Options for ports:
+| Variable | Type | Choices      | Required? | Default | Info                             |
+|----------+------+--------------+-----------+---------+----------------------------------|
+| protocol | str  | 'tcp', 'udp' | #f        | 'tcp'   |                                  |
+| port     | int  |              | #t        | None    | The port to export               |
+| pot_port | int  |              | #f        | None    | dynamically allocated by default |
+
 *** Examples
+
+*** =ansible-managed= Flavour
+
+A freshly created pot is somewhat useless if you want to manage it with Ansible, because there is no Python installation, and no sudo.
+
+#+begin_src shell
+  pkg install -y python3 sudo
+  pkg clean -ayq
+#+end_src
+
+#+begin_src yaml
+  - name: Install ansible-managed Flavour
+    copy:
+      dest: '/usr/local/etc/pot/flavours/ansible-managed.sh'
+      src: 'ansible-managed.sh'
+      mode: '0755'
+    become: yes
+#+end_src
 
 ** Pot Connection
 
@@ -279,6 +307,10 @@ Needs the =community.general= collection.
         mounts:
         - target: /opt
   	fscomp: testfs
+        ports:
+        - protocol: tcp
+  	port: 80
+  	pot_port: 80
 #+end_src
 
 * License
@@ -298,7 +330,7 @@ Daniel Ziltener, Code & Magic UG
 #+begin_src yaml
   namespace: zilti
   name: pot
-  version: 0.4.0
+  version: 0.5.0
 
   authors:
     - Daniel Ziltener <dziltener@lyrion.ch>
