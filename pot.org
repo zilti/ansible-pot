@@ -162,7 +162,7 @@ VNET Initialisation:
   <<gather-facts>>
   when:
   - pot.enabled|bool
-  - pot.vnet_enabled|bool
+  - not pot.vnet_enabled|bool
   - not potintel.vnet_initialized|bool
 #+end_src
 
@@ -2306,7 +2306,7 @@ requires_ansible: ">=2.9"
 #+begin_src yaml :tangle zilti/pot/galaxy.yml :mkdirp yes
 namespace: zilti
 name: pot
-version: 0.5.0
+version: 0.5.2
 
 authors:
   - Daniel Ziltener <dziltener@lyrion.ch>
@@ -2391,7 +2391,6 @@ import re
 import subprocess
 from os.path import exists
 from ansible.module_utils.basic import AnsibleModule
-from ansible.errors import AnsibleError
 
 
 __metaclass__ = type

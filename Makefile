@@ -6,7 +6,7 @@
 
 .PHONY: galaxy-publish
 
-VERSION = 0.5.0
+VERSION = 0.5.2
 GALAXY_ARTIFACT := zilti-pot-${VERSION}.tar.gz
 
 README.org zilti/pot/README.org zilti/pot/README.md: pot.org
@@ -36,6 +36,8 @@ test:: ${GALAXY_ARTIFACT}
 	ansible-playbook -i inventory playbook.yml -vvv
 
 galaxy-api-key = ''
-galaxy-publish: ${GALAXY_ARTIFACT}
+galaxy-publish: ${GALAXY_ARTIFACT} README.org
 	ansible-galaxy collection publish --api-key	'${galaxy-api-key}' ${GALAXY_ARTIFACT}
+	git add pot.org zilti/pot
+	git tag ${VERSION}
 # end

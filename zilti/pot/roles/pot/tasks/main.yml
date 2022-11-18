@@ -61,7 +61,7 @@
       filter: ansible_local
   when:
   - pot.enabled|bool
-  - pot.vnet_enabled|bool
+  - not pot.vnet_enabled|bool
   - not potintel.vnet_initialized|bool
 
 - name: Install ansible-managed Flavour

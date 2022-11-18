@@ -5,7 +5,6 @@ import re
 import subprocess
 from os.path import exists
 from ansible.module_utils.basic import AnsibleModule
-from ansible.errors import AnsibleError
 
 
 __metaclass__ = type
