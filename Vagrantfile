@@ -14,7 +14,7 @@ Vagrant.configure("2") do |config|
   config.vm.provision "shell", inline: $script
   config.vm.provision "ansible_local" do |ansible|
     ansible.playbook = "/vagrant/tests/test.yml"
-#    ansible.verbose = "-vvv"
+    ansible.verbose = "-vvv"
   end
   config.vm.provider "libvirt" do |v|
     v.memory = 2048

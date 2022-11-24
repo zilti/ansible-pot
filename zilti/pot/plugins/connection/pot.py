@@ -55,10 +55,7 @@ class Connection(ConnectionBase):
             raise AnsibleError("jail connection requires running as root")
         if self.jail not in self.list_jails():
             raise AnsibleError("jail %s does not exist" % self.jail)
-    def _exec(self, args, env={}):
-        res = subprocess.run(
-            args, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        return res.returncode, res.stdout.decode('utf-8'), res.stderr.decode('utf-8')
+    
     def list_jails(self):
         rc, out, err = self._exec([self.executable, 'ls'])
         filtered = filter(lambda x: x.startswith("pot name"), out.split("\n"))

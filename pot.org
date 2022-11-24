@@ -9,48 +9,48 @@ None.
 
 * Global Python Blocks :noexport:
 
-Module init:
+Running shell commands:
 
-#+name: py_module__init
-#+begin_src python :noweb no-export
-def __init__(self, module, **kwargs):
-    self.module = module
-    self.params = kwargs["params"]
-    self.executable = [module.get_bin_path("pot", True)]
-
-<<py__exec>>
-
-<<py_pot_root>>
-
-<<py_pot_zfs_root>>
-#+end_src
-
-Exec procedure:
-
-#+name: py__exec
-#+begin_src python
-def _exec(self, args, env={}):
-    res = subprocess.run(
-        args, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    return res.returncode, res.stdout.decode('utf-8'), res.stderr.decode('utf-8')
+#+name: py_shell
+#+begin_src emacs-lisp :var cmd="cmd" :var creates="" :var removes="" :results raw
+(concat (format "self._execute_module(module_name='ansible.builtin.command', module_args=dict(_raw_params=%s, _uses_shell=True" cmd)
+        (when (> (length creates) 0)
+          (format ", creates=%s" creates))
+        (when (> (length removes) 0)
+          (format ", removes=%s" removes))
+        "), task_vars=task_vars, tmp=tmp)")
 #+end_src
 
 Determining Pot's root directory:
 
 #+name: py_pot_root
 #+begin_src python
-def pot_root(self):
-    rc, out, err = self._exec([self.executable[0], "config", "-g", "fs_root"])
-    return out.split("=")[1].strip()
+def pot_root(self, tmp, task_vars):
+    display.vvv("Determining pot root...")
+    result = self._execute_module(
+        module_name='ansible.builtin.command',
+        module_args=dict(_uses_shell=True,_raw_params='$(which pot) config -g fs_root'),
+        task_vars=task_vars,
+        tmp=tmp
+    )
+    display.vvv("Pot Root output: %s" % result['stdout'])
+    return result['stdout'].split("=")[1].strip()
+
 #+end_src
 
 And the ZFS root:
 
 #+name: py_pot_zfs_root
 #+begin_src python
-def pot_zfs_root(self):
-    rc, out, err = self._exec([self.executable[0], "config", "-g", "zfs_root"])
-    return out.split("=")[1].strip()
+def pot_zfs_root(self, tmp, task_vars):
+    result = self._execute_module(
+        module_name='ansible.builtin.command',
+        module_args=dict(_uses_shell=True,_raw_params='$(which pot) config -g zfs_root'),
+        task_vars=task_vars,
+        tmp=tmp
+    )
+    return result['stdout'].split('=')[1].strip()
+
 #+end_src
 
 * Role Variables
@@ -405,53 +405,63 @@ requirements:
 *** Examples
 
 
-*** Bridge Module :noexport:
-
-Determining if the bridge exists:
-
-#+name: bridge_exists
-#+begin_src python
-def bridge_exists(self):
-    return exists(self.pot_root()+'/bridges/'+self.params["name"])
-#+end_src
+*** Bridge Plugin :noexport:
 
 Bridge creation arguments:
 
 #+name: bridge-create-args
-| Argument | Switch |
-|----------+--------|
-| name     | -B     |
-| size     | -S     |
+| Argument | Switch | Type   | Plugin-side Default |
+|----------+--------+--------+---------------------|
+| name     | -B     | single | None                |
+| size     | -S     | single | None                |
 
 #+name: bridge_create
 #+begin_src python :noweb no-export
-def create(self):
-    if self.params["state"] == "present" and not self.bridge_exists():
-        cmd = [self.executable[0], "create-private-bridge"]
-        <<cmdswitches(srctbl=bridge-create-args,dict="cmd")>>
-        rc, out, err = self._exec(cmd)
-        return True, out, err
-    else:
-        return False, None, None
+def create(self, tmp, task_vars):
+    exists_path = self.pot_root(tmp, task_vars)+'/bridges/'+self._task.args.get('name')
+    cmd = ["$(which pot)", "create-private-bridge"]
+    <<cmdswitches(srctbl=bridge-create-args,dict="cmd")>>
+    cmd = ' '.join(cmd)
+    return <<py_shell(creates="exists_path")>>
+
 #+end_src
 
 Bridge destruction:
 
 #+name: bridge_destroy
 #+begin_src python :noweb no-export
-def destroy(self):
-    if self.params["state"] == "absent" and self.bridge_exists():
-        cmd = [self.executable[0], "destroy", "-B", self.params["name"]]
-        rc, out, err = self._exec(cmd)
-        return True, out, err
-    else:
-        return False, None, None
+def destroy(self, tmp, task_vars):
+    exists_path = self.pot_root(tmp, task_vars)+'/bridges/'+self._task.args.get('name')
+    cmd = ["$(which pot)", "destroy", "-B", self._task.args.get('name')]
+    cmd = ' '.join(cmd)
+    return <<py_shell(removes="exists_path")>>
+
+#+end_src
+
+Plugin:
+
+#+begin_src python :noweb no-export :tangle zilti/pot/plugins/action/pot_bridge.py :mkdirp yes
+<<action-header>>
+
+class ActionModule(ActionBase):
+
+    <<py_pot_root>>
+    <<bridge_create>>
+    <<bridge_destroy>>
+    def run(self, tmp=None, task_vars=None):
+        result = super(ActionModule, self).run(tmp, task_vars)
+        state = self._task.args.get('state')
+        if state == 'present':
+            result.update(self.create(tmp, task_vars))
+        if state == 'absent':
+            result.update(self.destroy(tmp, task_vars))
+        return result
 #+end_src
 
 Module:
 
 #+begin_src python :noweb no-export :tangle zilti/pot/plugins/modules/pot_bridge.py :mkdirp yes
-<<module-header>>
+<<action-module-header>>
 
 DOCUMENTATION = r"""
 <<bridge-docstr>>
@@ -459,27 +469,6 @@ DOCUMENTATION = r"""
 
 EXAMPLES = r"""
 """
-
-
-class PotBridge(object):
-    <<py_module__init>>
-    <<bridge_exists>>
-    <<bridge_create>>
-    <<bridge_destroy>>
-
-
-def main():
-    <<vardict(srctbl=bridge-vars)>>
-    bridge = PotBridge(module, params=module.params)
-    changed, out, err = False, None, None
-    if module.params["state"] == "present":
-        changed, out, err = bridge.create()
-    else:
-        changed, out, err = bridge.destroy()
-    module.exit_json(changed=changed, stdout=out, stderr=err)
-
-if __name__ == "__main__":
-    main()
 #+end_src
 
 ** FS Components Module
@@ -510,52 +499,62 @@ requirements:
 
 *** Examples
 
-*** FSComp Module :noexport:
-
-Determining if the fscomp exists:
-
-#+name: fscomp_exists
-#+begin_src python
-def fscomp_exists(self):
-    return exists(self.pot_root()+'/fscomp/'+self.params["name"])
-#+end_src
+*** FSComp Plugin :noexport:
 
 FS Component creation arguments:
 
 #+name: fscomp-create-args
-| Argument | Switch |
-|----------+--------|
-| name     | -f     |
+| Argument | Switch | Type   | Plugin-side Default |
+|----------+--------+--------+---------------------|
+| name     | -f     | Single | None                |
 
 #+name: fscomp_create
 #+begin_src python :noweb no-export
-def create(self):
-    if self.params["state"] == "present" and not self.fscomp_exists():
-        cmd = [self.executable[0], "create-fscomp"]
-        <<cmdswitches(srctbl=fscomp-create-args,dict="cmd")>>
-        rc, out, err = self._exec(cmd)
-        return True, out, err
-    else:
-        return False, None, None
+def create(self, tmp, task_vars):
+    exists_path = self.pot_root(tmp, task_vars)+'/fscomp/'+self._task.args.get('name')
+    cmd = ['$(which pot)', 'create-fscomp']
+    <<cmdswitches(srctbl=fscomp-create-args,dict="cmd")>>
+    cmd = ' '.join(cmd)
+    return <<py_shell(creates="exists_path")>>
+
 #+end_src
 
 And destroying FS Components:
 
 #+name: fscomp_destroy
 #+begin_src python :noweb no-export
-def destroy(self):
-    if self.params["state"] == "absent" and self.fscomp_exists():
-        cmd = [self.executable[0], "destroy", "-f", self.params["name"]]
-        rc, out, err = self._exec(cmd)
-        return True, out, err
-    else:
-        return False, None, None
+def destroy(self, tmp, task_vars):
+    exists_path = self.pot_root(tmp, task_vars)+'/fscomp/'+self._task.args.get('name')
+    cmd = ['$(which pot)', 'destroy', '-f', self._task.args.get('name')]
+    cmd = ' '.join(cmd)
+    return <<py_shell(removes="exists_path")>>
+
+#+end_src
+
+Plugin:
+
+#+begin_src python :noweb no-export :tangle zilti/pot/plugins/action/pot_fscomp.py :mkdirp yes
+<<action-header>>
+
+class ActionModule(ActionBase):
+
+    <<py_pot_root>>
+    <<fscomp_create>>
+    <<fscomp_destroy>>
+    def run(self, tmp=None, task_vars=None):
+        result = super(ActionModule, self).run(tmp, task_vars)
+        state = self._task.args.get('state')
+        if state == 'present':
+            result.update(self.create(tmp, task_vars))
+        if state == 'absent':
+            result.update(self.destroy(tmp, task_vars))
+        return result
 #+end_src
 
 Module:
 
 #+begin_src python :noweb no-export :tangle zilti/pot/plugins/modules/pot_fscomp.py :mkdirp yes
-<<module-header>>
+<<action-module-header>>
 
 DOCUMENTATION = r"""
 <<fscomp-docstr>>
@@ -563,27 +562,6 @@ DOCUMENTATION = r"""
 
 EXAMPLES = r"""
 """
-
-
-class PotFSComp(object):
-    <<py_module__init>>
-    <<fscomp_exists>>
-    <<fscomp_create>>
-    <<fscomp_destroy>>
-
-
-def main():
-    <<vardict(srctbl=fscomp-vars)>>
-    fscomp = PotFSComp(module, params=module.params)
-    changed, out, err = False, None, None
-    if module.params["state"] == "present":
-        changed, out, err = fscomp.create()
-    else:
-        changed, out, err = fscomp.destroy()
-    module.exit_json(changed=changed, stdout=out, stderr=err)
-
-if __name__ == "__main__":
-    main()
 #+end_src
 
 ** Bases Module
@@ -615,51 +593,61 @@ requirements:
 
 *** Examples
 
-*** Base Module :noexport:
-
-We first determine if the base already exists.
-
-#+name: base_exists
-#+begin_src python
-def base_exists(self):
-    return exists(self.pot_root()+'/bases/'+self.params["name"])
-#+end_src
+*** Base Plugin :noexport:
 
 Base creation arguments:
 
 #+name: base-create-args
-| Argument | Switch |
-|----------+--------|
-| name     | -b     |
-| release  | -r     |
+| Argument | Switch | Type   | Plugin-side Default |
+|----------+--------+--------+---------------------|
+| name     | -b     | single | None                |
+| release  | -r     | single | None                |
 
 #+name: base_create
 #+begin_src python :noweb no-export
-def create(self):
-    if self.params["state"] == "present" and not self.base_exists():
-        cmd = [self.executable[0], "create-base"]
-        <<cmdswitches(srctbl=base-create-args,dict="cmd")>>
-        rc, out, err = self._exec(cmd)
-        return True, out, err
-    else:
-        return False, None, None
+def create(self, tmp, task_vars):
+    exists_path = self.pot_root(tmp, task_vars)+'/fscomp/'+self._task.args.get('name')
+    cmd = ['$(which pot)', 'create-base']
+    <<cmdswitches(srctbl=base-create-args,dict="cmd")>>
+    cmd = ' '.join(cmd)
+    return <<py_shell(creates="exists_path")>>
+
 #+end_src
 
 Destroying a basejail:
 
 #+name: base_destroy
 #+begin_src python :noweb no-export
-def destroy(self):
-    if self.params["state"] == "absent" and self.base_exists():
-        cmd = [self.executable[0], "destroy", "-br", self.params["name"]]
-        rc, out, err = self._exec(cmd)
-        return True, out, err
-    else:
-        return False, None, None
+def destroy(self, tmp, task_vars):
+    exists_path = self.pot_root(tmp, task_vars)+'/fscomp/'+self._task.args.get('name')
+    cmd = ['$(which pot)', 'destroy', '-br', self._task.args.get('name')]
+    cmd = ' '.join(cmd)
+    return <<py_shell(removes="exists_path")>>
+
+#+end_src
+
+Plugin:
+
+#+begin_src python :noweb no-export :tangle zilti/pot/plugins/action/pot_base.py :mkdirp yes
+<<action-header>>
+
+class ActionModule(ActionBase):
+
+    <<py_pot_root>>
+    <<base_create>>
+    <<base_destroy>>
+    def run(self, tmp=None, task_vars=None):
+        result = super(ActionModule, self).run(tmp, task_vars)
+        state = self._task.args.get('state')
+        if state == 'present':
+            result.update(self.create(tmp, task_vars))
+        if state == 'absent':
+            result.update(self.destroy(tmp, task_vars))
+        return result
 #+end_src
 
 #+begin_src python :noweb no-export :tangle zilti/pot/plugins/modules/pot_base.py :mkdirp yes
-<<module-header>>
+<<action-module-header>>
 
 DOCUMENTATION = r"""
 <<base-docstr>>
@@ -667,27 +655,6 @@ DOCUMENTATION = r"""
 
 EXAMPLES = r"""
 """
-
-
-class PotBase(object):
-    <<py_module__init>>
-    <<base_exists>>
-    <<base_create>>
-    <<base_destroy>>
-
-
-def main():
-    <<vardict(srctbl=base-vars)>>
-    base = PotBase(module, params=module.params)
-    changed, out, err = False, None, None
-    if module.params["state"] == "present":
-        changed, out, err = base.create()
-    else:
-        changed, out, err = base.destroy()
-    module.exit_json(changed=changed, stdout=out, stderr=err)
-
-if __name__ == "__main__":
-    main()
 #+end_src
 
 ** Jails Module
@@ -753,22 +720,23 @@ requirements:
 Determining if the jail already exists:
 
 #+name: jail_exists
-#+begin_src python
-def jail_exists(self):
-    cmd = [self.executable[0], "ls"]
-    rc, out, err = self._exec(cmd)
-    filtered = filter(lambda x: x.startswith("pot name"), out.split("\n"))
-    return self.params["name"] in list(map(lambda x: x.split(":")[1].strip(), filtered))
+#+begin_src python :noweb no-export
+def jail_exists(self, tmp, task_vars):
+    cmd = ' '.join(['$(which pot)', 'ls'])
+    display.vvv('Determining if jail exists')
+    result = <<py_shell()>>
+    filtered = filter(lambda x: x.startswith("pot name"), result['stdout'].split("\n"))
+    return self._task.args.get('name') in list(map(lambda x: x.split(":")[1].strip(), filtered))
 #+end_src
 
 A helper function to extract infos from ~pot info -p~:
 
 #+name: jail_getinfo
-#+begin_src python
-def get_info(self, key):
-    cmd = [self.executable[0], "info", "-p", self.params["name"]]
-    rc, out, err = self._exec(cmd)
-    splat = map(lambda x: x.strip(), out.split("\n"))
+#+begin_src python :noweb no-export
+def get_info(self, tmp, task_vars, key):
+    cmd = ' '.join(['$(which pot)', 'info', '-p', self._task.args.get('name')])
+    result = <<py_shell()>>
+    splat = map(lambda x: x.strip(), result['stdout'].split("\n"))
     filtered = list(filter(lambda x: x.startswith(key), splat))
     return filtered[0].split(":")[1].strip()
 #+end_src
@@ -776,142 +744,129 @@ def get_info(self, key):
 Creating a jail accepts a number of arguments:
 
 #+name: jail-create-args
-| Argument      | Switch | Type   |
-|---------------+--------+--------|
-| name          | -p     | single |
-| ip            | -i     | multi  |
-| dns           | -d     | single |
-| base          | -b     | single |
-| type          | -t     | single |
-| flavour       | -f     | multi  |
-| pot           | -P     | single |
-| level         | -l     | single |
-| network_type  | -N     | single |
-| network_stack | -S     | single |
-| bridge_name   | -B     | single |
+| Argument      | Switch | Type   | Plugin-side Default |
+|---------------+--------+--------+---------------------|
+| name          | -p     | single | None                |
+| ip            | -i     | multi  | []                  |
+| dns           | -d     | single | None                |
+| base          | -b     | single | None                |
+| type          | -t     | single | None                |
+| flavour       | -f     | multi  | ['ansible-managed'] |
+| pot           | -P     | single | None                |
+| level         | -l     | single | None                |
+| network_type  | -N     | single | None                |
+| network_stack | -S     | single | None                |
+| bridge_name   | -B     | single | None                |
 
 #+name: jail_create
 #+begin_src python :noweb no-export
-def create(self):
-    if self.params["state"] in ['present', 'started', 'stopped', 'restarted'] and not self.jail_exists():
-        cmd = [self.executable[0], "create"]
-        <<cmdswitches(srctbl=jail-create-args,dict="cmd")>>
-        rc, out, err = self._exec(cmd)
-        return True, out, err
-    else:
-        return False, None, None
+def create(self, tmp, task_vars):
+    if self.jail_exists(tmp, task_vars):
+        return {}
+    exists_path = self.pot_root(tmp, task_vars)+'/jails/'+self._task.args.get('name')
+    cmd = ['$(which pot)', 'create']
+    <<cmdswitches(srctbl=jail-create-args,dict="cmd")>>
+    display.vvv("Prepared jail creation command: %s" % cmd)
+    cmd = ' '.join(cmd)
+    result = <<py_shell(creates="exists_path")>>
+    display.vvv("Result of jail creation: %s" % result)
+    return result
 #+end_src
 
 Destroying a jail requires that the jail state has been set to ~'absent'~ and that the jail is defined in the first place.
 
 #+name: jail_destroy
-#+begin_src python
-def destroy(self):
-    if self.params["state"] == 'absent' and self.jail_exists():
-        cmd = [self.executable[0], "stop", self.params["name"]]
-        self._exec(cmd)
-        rc, out, err = self._exec([self.executable[0], "destroy", "-rp", self.params["name"]])
-        return True, out, err
-    else:
-        return False, None, None
+#+begin_src python :noweb no-export
+def destroy(self, tmp, task_vars):
+    if not self.jail_exists(tmp, task_vars):
+        return {}
+    exists_path = self.pot_root(tmp, task_vars)+'/jails/'+self._task.args.get('name')
+    cmd = ' '.join(['$(which pot)', 'destroy', '-rp', self._task.args.get('name')])
+    return <<py_shell(removes="exists_path")>>
 #+end_src
 
 Stopping a jail:
 
 #+name: jail_stop
-#+begin_src python
-def stop(self):
-    if self.params["state"] in ['present', 'stopped', 'restarted'] and self.get_info('active') == 'true':
-        cmd = [self.executable[0], "stop", self.params["name"]]
-        rc, out, err = self._exec(cmd)
-        return True, out, err
+#+begin_src python :noweb no-export
+def stop(self, tmp, task_vars):
+    cmd = ' '.join(['$(which pot)', 'stop', self._task.args.get('name')])
+    if self.get_info(tmp, task_vars, 'active') == 'true':
+        return <<py_shell()>>
     else:
-        return False, None, None
+        return {}
 #+end_src
 
 Starting a jail:
 
 #+name: jail_start
-#+begin_src python
-def start(self):
-    if self.params["state"] in ['started', 'restarted'] and self.get_info('active') == 'false':
-        cmd = [self.executable[0], "start", self.params["name"]]
-        rc, out, err = self._exec(cmd)
-        return True, out, err
+#+begin_src python :noweb no-export
+def start(self, tmp, task_vars):
+    cmd = ' '.join(['$(which pot)', 'start', self._task.args.get('name')])
+    if self.get_info(tmp, task_vars, 'active') == 'false':
+        return <<py_shell()>>
     else:
-        return False, None, None
+        return {}
 #+end_src
 
 Mounting things in jails:
 
 #+name: jail-mounts-args
-| Argument | Switch | Type   |
-|----------+--------+--------|
-| target   | -m     | single |
-| dir      | -d     | single |
-| fscomp   | -f     | single |
-| dataset  | -z     | single |
-| direct   | -w     | flag   |
-| mode     | -r     | flag   |
+| Argument | Switch | Type   | Plugin-side Default |
+|----------+--------+--------+---------------------|
+| target   | -m     | single | None                |
+| dir      | -d     | single | None                |
+| fscomp   | -f     | single | None                |
+| dataset  | -z     | single | None                |
+| direct   | -w     | flag   | False               |
+| mode     | -r     | flag   | False               |
 
 #+name: jail_has_mount
-#+begin_src python
-def has_mount(self, mountpoint, mounttarget):
-    jaildir = self.pot_root()+'/jails/'+self.params["name"]
+#+begin_src python :noweb no-export
+def has_mount(self, tmp, task_vars, mountpoint, mounttarget):
+    jaildir = self.pot_root(tmp, task_vars)+'/jails/'+self._task.args.get('name')
     jailroot = jaildir+'/m'
     mountline = mounttarget+' '+jailroot+mountpoint
-    rc, out, err = self._exec(['cat', jaildir+'/conf/fscomp.conf'])
-    res = list(filter(lambda x: x == mountline, out.split("\n")))
+    cmd = ' '.join(['cat', jaildir+'/conf/fscomp.conf'])
+    result = <<py_shell()>>
+    res = list(filter(lambda x: x == mountline, result['stdout'].split("\n")))
     return len(res) > 0
 #+end_src
 
 #+name: jail_mounts
 #+begin_src python :noweb no-export
-def mounts(self):
-    changed = False
-    rc = 0
-    out = None
-    err = None
-    if not "mounts" in self.params:
-        return False, None, None
-    for mount in self.params["mounts"]:
+def mounts(self, result, tmp, task_vars):
+    mounts = self._task.args.get('mounts', None)
+    if not mounts:
+        return result
+    for mount in mounts:
         mounttarget = ""
         if "dir" in mount:
             mounttarget = mount["dir"]
         elif "fscomp" in mount:
-            mounttarget = self.pot_zfs_root()+'/fscomp/'+mount["fscomp"]
+            mounttarget = self.pot_zfs_root(tmp, task_vars)+'/fscomp/'+mount["fscomp"]
         elif "dataset" in mount:
             mounttarget = mount["dataset"]
 
-        if not self.has_mount(mount["target"], mounttarget):
-            cmd = [self.executable[0], 'mount-in', '-p', self.params["name"]]
+        if not self.has_mount(tmp, task_vars, mount["target"], mounttarget):
+            cmd = ['$(which pot)', 'mount-in', '-p', self._task.args.get('name')]
             if "mode" in mount and mount["mode"] != "ro":
-                self.params.pop("mode")
+                mount.pop("mode")
             <<cmdswitches(srctbl=jail-mounts-args,dict="cmd",kwargs="mount")>>
-            rc1, out1, err1 = self._exec(cmd)
-            rc = rc + rc1
-            out = (out and out+"\n"+out1) or out1
-            err = (err and err+"\n"+err1) or err1
-            changed = changed or True
-        else:
-            changed = changed or False
-    return changed, out, err
+            result.update(<<py_shell()>>)
+    return result
 #+end_src
 
 Mapping ports to jails:
 
 #+name: jail_portmap
-#+begin_src python
-def map_ports(self):
-    if not "ports" in self.params:
-        return False, None, None
-
-    changed = True
-    rc = 0
-    out = None
-    err = None
-    cmd = [self.executable[0], 'export-ports', '-p', self.params["name"]]
-    for port in self.params["ports"]:
+#+begin_src python :noweb no-export
+def map_ports(self, tmp, task_vars):
+    ports = self._task.args.get('ports', None)
+    if not ports:
+        return {}
+    cmd = ['$(which pot)', 'export-ports', '-p', self._task.args.get('name')]
+    for port in ports:
         portstr = "{0}".format(port["port"])
         if "protocol" in port:
             portstr = "{0}:{1}".format(port["protocol"], portstr)
@@ -919,25 +874,19 @@ def map_ports(self):
             portstr = "{0}:{1}".format(portstr, port["pot_port"])
         cmd.append('-e')
         cmd.append(portstr)
-    rc, out, err = self._exec(cmd)
-    return changed, out, err
+    cmd = ' '.join(cmd)
+    return <<py_shell()>>
 #+end_src
 
-Module:
+Plugin:
 
-#+begin_src python :noweb no-export :tangle zilti/pot/plugins/modules/pot_jail.py :mkdirp yes
-<<module-header>>
+#+begin_src python :noweb no-export :tangle zilti/pot/plugins/action/pot_jail.py :mkdirp yes
+<<action-header>>
 
-DOCUMENTATION = r"""
-<<jail-docstr>>
-"""
+class ActionModule(ActionBase):
 
-EXAMPLES = r"""
-"""
-
-
-class PotJail(object):
-    <<py_module__init>>
+    <<py_pot_root>>
+    <<py_pot_zfs_root>>
     <<jail_exists>>
     <<jail_getinfo>>
     <<jail_has_mount>>
@@ -947,52 +896,34 @@ class PotJail(object):
     <<jail_start>>
     <<jail_mounts>>
     <<jail_portmap>>
+    def run(self, tmp=None, task_vars=None):
+        result = super(ActionModule, self).run(tmp, task_vars)
+        state = self._task.args.get('state')
+        if state in ['present', 'stopped', 'started', 'restarted']:
+            result.update(self.create(tmp, task_vars))
+        if state in ['stopped', 'restarted', 'absent']:
+            result.update(self.stop(tmp, task_vars))
+        if state in ['absent']:
+            result.update(self.destroy(tmp, task_vars))
+        if state in ['started', 'restarted']:
+            result.update(self.start(tmp, task_vars))
+        if state != 'absent':
+            result = self.mounts(result, tmp, task_vars)
+            result.update(self.map_ports(tmp, task_vars))
+        return result
+#+end_src
 
+Module:
 
-def main():
-    <<vardict(srctbl=jail-vars)>>
-    jail = PotJail(module, params=module.params)
-    changed, out, err = False, None, None
-    if module.params["state"] == "present":
-        changed, out, err = jail.create()
-    elif module.params["state"] == "absent":
-        changed, out, err = jail.destroy()
-    elif module.params["state"] == "started":
-        c1, o1, e1 = jail.create()
-        c2, o2, e2 = jail.start()
-        changed = c1 or c2
-        out = (o1 and o2 and o1+'\n'+o2) or o1 or o2
-        err = (e1 and e2 and e1+'\n'+e2) or e1 or e2
-    elif module.params["state"] == "stopped":
-        c1, o1, e1 = jail.create()
-        c2, o2, e2 = jail.stop()
-        changed = c1 or c2
-        out = (o1 and o2 and o1+'\n'+o2) or o1 or o2
-        err = (e1 and e2 and e1+'\n'+e2) or e1 or e2
-    elif module.params["state"] == "restarted":
-        c1, o1, e1 = jail.create()
-        c2, o2, e2 = jail.stop()
-        c3, o3, e3 = jail.start()
-        changed = c1 or c2 or c3
-        out = ''
-        err = ''
-        out = (o1 and o1+'\n' or '')+(o2 and o2+'\n' or '')+(o3 and o3+'\n' or '')
-        err = (e1 and e1+'\n' or '')+(e2 and e2+'\n' or '')+(e3 and e3+'\n' or '')
-    if module.params["state"] != "absent":
-        c1, o1, e1 = jail.mounts()
-        changed = changed or c1
-        out = (out and out+"\n"+o1) or o1
-        err = (err and err+"\n"+e1) or e1
+#+begin_src python :noweb no-export :tangle zilti/pot/plugins/modules/pot_jail.py :mkdirp yes
+<<action-module-header>>
 
-        c1, o1, e1 = jail.map_ports()
-        changed = changed or c1
-        out = (out and out+"\n"+o1) or o1
-        err = (err and err+"\n"+e1) or e1
-    module.exit_json(changed=changed, stdout=out, stderr=err)
+DOCUMENTATION = r"""
+<<jail-docstr>>
+"""
 
-
-if __name__ == "__main__":
-    main()
+EXAMPLES = r"""
+"""
 #+end_src
 
 *** =ansible-managed= Flavour
@@ -1602,14 +1533,11 @@ Needs the =community.general= collection.
   - zilti.pot.pot_jail:
       name: testpot1
       base: 13.1
+      type: single
       state: started
       mounts:
       - target: /opt
         fscomp: testfs
-      ports:
-      - protocol: tcp
-        port: 80
-        pot_port: 80
 #+end_src
 
 * License
@@ -2306,7 +2234,7 @@ requires_ansible: ">=2.9"
 #+begin_src yaml :tangle zilti/pot/galaxy.yml :mkdirp yes
 namespace: zilti
 name: pot
-version: 0.5.2
+version: 0.5.3
 
 authors:
   - Daniel Ziltener <dziltener@lyrion.ch>
@@ -2397,6 +2325,28 @@ __metaclass__ = type
 
 #+end_src
 
+#+name: action-module-header
+#+begin_src python
+# -*- Coding: utf-8 -*-
+from __future__ import (absolute_import, division, print_function)
+__metaclass__ = type
+#+end_src
+
+#+name: action-header
+#+begin_src python
+# -*- Coding: utf-8 -*-
+from __future__ import (absolute_import, division, print_function)
+__metaclass__ = type
+import os
+import subprocess
+from ansible.errors import AnsibleAction, AnsibleActionFail
+from ansible.plugins.action import ActionBase
+from ansible.utils.display import Display
+
+display = Display()
+
+#+end_src
+
 #+name: connection-header
 #+begin_src python
 # -*- Coding: utf-8 -*-
@@ -2474,20 +2424,21 @@ __metaclass__ = type
 #+end_src
 
 #+name: cmdswitches
-#+begin_src emacs-lisp :var srctbl=bridge-create-args :var dict="switches" :var kwargs="self.params" :colnames yes :results raw
+#+begin_src emacs-lisp :var srctbl=bridge-create-args :var dict="switches" :var kwargs="self._task.args" :colnames yes :results raw
 (concat (mapconcat
          (lambda (row)
            (let ((argument (cl-first row))
                  (switch (cl-second row))
-                 (type (cl-third row)))
+                 (type (cl-third row))
+                 (default (cl-fourth row)))
              (if (string= type "multi")
-                 (concat (format "for elem in %s[%S]:\n" kwargs argument)
+                 (concat (format "for elem in %s.get(%S, %s):\n" kwargs argument default)
                          (format "    %s.append(%S)\n" dict switch)
-                         (format "    %s.append(elem)\n" dict))
-               (concat (format "if %S in %s and %s[%S]:\n" argument kwargs kwargs argument)
+                         (format "    %s.append('%%s' %% elem)\n" dict))
+               (concat (format "if %s.get(%S, %s):\n" kwargs argument default)
                        (format "    %s.append(%S)\n" dict switch)
                        (when (not (string= type "flag"))
-                       (format "    %s.append(%s[%S])\n" dict kwargs argument))))))
+                       (format "    %s.append('%%s' %% %s.get(%S, %s))\n" dict kwargs argument default))))))
          srctbl "\n"))
 #+end_src
 

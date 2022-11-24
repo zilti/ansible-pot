@@ -6,25 +6,21 @@
 
 .PHONY: galaxy-publish
 
-VERSION = 0.5.2
+VERSION = 0.5.3
 GALAXY_ARTIFACT := zilti-pot-${VERSION}.tar.gz
 
-README.org zilti/pot/README.org zilti/pot/README.md: pot.org
+README.org zilti/pot/README.org zilti/pot/README.md zilti/pot/galaxy.yml: pot.org
 	mkdir -p zilti/pot
 	emacs pot.org --batch --kill \
 	--eval '(setq org-confirm-babel-evaluate nil)' \
+	--eval "(require 'ob-tangle)" \
 	-f org-org-export-to-org \
-	-f org-md-export-to-markdown
+	-f org-md-export-to-markdown \
+	--eval '(org-babel-tangle-file "pot.org")'
 	mv pot.org.org README.org
 	mv pot.md zilti/pot/README.md
 	git add README.org
 	git add zilti/pot/README.md
-
-zilti/pot/galaxy.yml: pot.org
-	emacs pot.org --batch --kill \
-	--eval '(setq org-confirm-babel-evaluate nil)' \
-	--eval "(require 'ob-tangle)" \
-	--eval '(org-babel-tangle-file "pot.org")'
 
 ${GALAXY_ARTIFACT}: zilti/pot/galaxy.yml
 	rm -rf ${GALAXY_ARTIFACT}
@@ -39,5 +35,4 @@ galaxy-api-key = ''
 galaxy-publish: ${GALAXY_ARTIFACT} README.org
 	ansible-galaxy collection publish --api-key	'${galaxy-api-key}' ${GALAXY_ARTIFACT}
 	git add pot.org zilti/pot
-	git tag ${VERSION}
 # end

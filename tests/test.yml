@@ -20,11 +20,8 @@
   - zilti.pot.pot_jail:
       name: testpot1
       base: 13.1
+      type: single
       state: started
       mounts:
       - target: /opt
         fscomp: testfs
-      ports:
-      - protocol: tcp
-        port: 80
-        pot_port: 80

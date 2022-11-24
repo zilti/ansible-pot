@@ -1,4 +1,4 @@
-# Created 2022-11-18 Fr 17:36
+# Created 2022-11-24 Do 22:31
 #+title: Ansible Pot
 #+author: Daniel Ziltener
 I am a role to manage your Pot jails on FreeBSD. My source is located in the [[https://github.com/zilti/ansible-pot/blob/master/pot.org][pot.org]] file.
@@ -303,14 +303,11 @@ Needs the =community.general= collection.
     - zilti.pot.pot_jail:
         name: testpot1
         base: 13.1
+        type: single
         state: started
         mounts:
         - target: /opt
   	fscomp: testfs
-        ports:
-        - protocol: tcp
-  	port: 80
-  	pot_port: 80
 #+end_src
 
 * License
@@ -330,7 +327,7 @@ Daniel Ziltener, Code & Magic UG
 #+begin_src yaml
   namespace: zilti
   name: pot
-  version: 0.5.2
+  version: 0.5.3
 
   authors:
     - Daniel Ziltener <dziltener@lyrion.ch>
