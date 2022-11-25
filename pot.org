@@ -1410,8 +1410,8 @@ class Connection(ConnectionBase):
         jailnames = list(map(lambda x: x.split(":")[1].strip(), filtered))
         return jailnames
 
-    def pot_root(self):
-        rc, out, err = self._jailhost_command(" ".join([self.executable, 'config', '-g', 'fs_root']))
+    def jail_prefix(self):
+        rc, out, err = self._jailhost_command(' '.join([self.executable, 'config', '-g', 'pot_prefix']))
         return out.decode('utf-8').split("=")[1].strip()
 
     def _strip_sleep(self, cmd):
@@ -1474,11 +1474,12 @@ class Connection(ConnectionBase):
         return os.path.join(prefix, normpath[1:])
 
     def _copy_file(self, direction, from_file, to_file, executable='/bin/sh'):
-        copycmd= ' '.join([self.executable, 'copy-'+direction, '-F', '-p', self.jailspec, '-s', from_file, '-d', to_file])
+        #copycmd= ' '.join([self.executable, 'copy-'+direction, '-F', '-p', self.jailspec, '-s', from_file, '-d', to_file])
 #        if self._play_context.become:
         plugin = self.become
         shell = get_shell_plugin(executable=executable)
-        copycmd = plugin.build_become_command(copycmd, shell)
+        #copycmd = plugin.build_become_command(copycmd, shell)
+        copycmd = plugin.build_become_command(' '.join(['cp', from_file, to_file]), shell)
 
         display.vvv(u"REMOTE COPY {0} TO {1}".format(from_file, to_file), host=self.inventory_hostname)
         code, stdout, stderr = self._jailhost_command(copycmd)
@@ -1487,16 +1488,16 @@ class Connection(ConnectionBase):
 
     def put_file(self, in_path, out_path):
         ''' transfer a file from local to remote jail '''
-        out_path = self._normalize_path(out_path)#, "%s/jails/%s/m" % (self.pot_root(), self.jailspec))
+        out_path = self._normalize_path(out_path, self.jail_prefix()+'/'+self.jailspec+'/m/')
 
         with self.tempfile() as tmp:
             super(Connection, self).put_file(in_path, tmp)
-            display.vvv("Jail %s: fetching %s to %s" % (self.jailspec, tmp, out_path))
+            display.vvv("Jail %s: putting %s to %s" % (self.jailspec, tmp, out_path))
             self._copy_file('in', tmp, out_path)
 
     def fetch_file(self, in_path, out_path):
         ''' fetch a file from remote to local '''
-        in_path = self._normalize_path(in_path)#, "%s/jails/%s/m" % (self.pot_root(), self.jailspec))
+        in_path = self._normalize_path(in_path, self.jail_prefix()+'/'+self.jailspec+'/m/')
 
         with self.tempfile() as tmp:
             display.vvv("Jail %s: fetching %s to %s" % (self.jailspec, in_path, tmp))
@@ -2234,7 +2235,7 @@ requires_ansible: ">=2.9"
 #+begin_src yaml :tangle zilti/pot/galaxy.yml :mkdirp yes
 namespace: zilti
 name: pot
-version: 0.5.3
+version: 0.5.4
 
 authors:
   - Daniel Ziltener <dziltener@lyrion.ch>
