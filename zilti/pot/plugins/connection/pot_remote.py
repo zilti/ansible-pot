@@ -410,9 +410,7 @@ class Connection(ConnectionBase):
         if code != 0:
             raise AnsibleError("failed to remove temp file %s:\n%s\n%s" % (tmp, stdout, stderr))
 
-    def _normalize_path(self, path, prefix='/'):
-        if path.startswith("~"):
-            path = "/root/{0}".format(path)
+    def _normalize_path(self, path, prefix):
         if not path.startswith(os.path.sep):
             path = os.path.join(os.path.sep, path)
         normpath = os.path.normpath(path)

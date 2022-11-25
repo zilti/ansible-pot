@@ -1465,9 +1465,7 @@ class Connection(ConnectionBase):
         if code != 0:
             raise AnsibleError("failed to remove temp file %s:\n%s\n%s" % (tmp, stdout, stderr))
 
-    def _normalize_path(self, path, prefix='/'):
-        if path.startswith("~"):
-            path = "/root/{0}".format(path)
+    def _normalize_path(self, path, prefix):
         if not path.startswith(os.path.sep):
             path = os.path.join(os.path.sep, path)
         normpath = os.path.normpath(path)
@@ -2235,7 +2233,7 @@ requires_ansible: ">=2.9"
 #+begin_src yaml :tangle zilti/pot/galaxy.yml :mkdirp yes
 namespace: zilti
 name: pot
-version: 0.5.4
+version: 0.5.5
 
 authors:
   - Daniel Ziltener <dziltener@lyrion.ch>

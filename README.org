@@ -1,4 +1,4 @@
-# Created 2022-11-25 Fr 14:19
+# Created 2022-11-25 Fr 14:29
 #+title: Ansible Pot
 #+author: Daniel Ziltener
 I am a role to manage your Pot jails on FreeBSD. My source is located in the [[https://github.com/zilti/ansible-pot/blob/master/pot.org][pot.org]] file.
@@ -327,7 +327,7 @@ Daniel Ziltener, Code & Magic UG
 #+begin_src yaml
   namespace: zilti
   name: pot
-  version: 0.5.4
+  version: 0.5.5
 
   authors:
     - Daniel Ziltener <dziltener@lyrion.ch>
