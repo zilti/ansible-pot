@@ -387,10 +387,9 @@ class Connection(ConnectionBase):
         else:
             cmd = " ".join([self.executable, 'exec', '-p', self.jailspec, cmd])
 
-        if self._play_context.become:
-            plugin = self.become
-            shell = get_shell_plugin(executable=executable)
-            cmd = plugin.build_become_command(cmd, shell)
+        plugin = self.become
+        shell = get_shell_plugin(executable=executable)
+        cmd = plugin.build_become_command(cmd, shell)
 
         display.vvv(u"EXEC {0}".format(cmd))
         rc, out, err = super(Connection, self).exec_command(cmd, in_data, True)
