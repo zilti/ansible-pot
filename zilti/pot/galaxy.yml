@@ -1,6 +1,6 @@
 namespace: zilti
 name: pot
-version: 0.5.5
+version: 0.5.6
 
 authors:
   - Daniel Ziltener <dziltener@lyrion.ch>
