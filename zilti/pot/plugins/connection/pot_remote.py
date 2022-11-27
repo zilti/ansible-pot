@@ -414,6 +414,8 @@ class Connection(ConnectionBase):
             raise AnsibleError("failed to remove temp file %s:\n%s\n%s" % (tmp, stdout, stderr))
 
     def _normalize_path(self, path, prefix='/'):
+        if path.startswith("~"):
+            path = "/root/{0}".format(path)
         if not path.startswith(os.path.sep):
             path = os.path.join(os.path.sep, path)
         normpath = os.path.normpath(path)
@@ -433,7 +435,7 @@ class Connection(ConnectionBase):
 
     def put_file(self, in_path, out_path):
         ''' transfer a file from local to remote jail '''
-        out_path = self._normalize_path(out_path, self.jail_prefix()+'/'+self.jailspec+'/m/')
+        out_path = self._normalize_path(out_path)#, "%s/jails/%s/m" % (self.pot_root(), self.jailspec))
 
         with self.tempfile() as tmp:
             super(Connection, self).put_file(in_path, tmp)
@@ -442,7 +444,7 @@ class Connection(ConnectionBase):
 
     def fetch_file(self, in_path, out_path):
         ''' fetch a file from remote to local '''
-        in_path = self._normalize_path(in_path, self.jail_prefix()+'/'+self.jailspec+'/m/')
+        in_path = self._normalize_path(in_path)#, "%s/jails/%s/m" % (self.pot_root(), self.jailspec))
 
         with self.tempfile() as tmp:
             display.vvv("Jail %s: fetching %s to %s" % (self.jailspec, in_path, tmp))
