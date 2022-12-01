@@ -1,5 +1,6 @@
 #+title: Ansible Pot
 #+author: Daniel Ziltener
+#+options: toc:2
 
 I am a role to manage your Pot jails on FreeBSD. My source is located in the [[https://github.com/zilti/ansible-pot/blob/master/pot.org][pot.org]] file.
 
@@ -849,10 +850,11 @@ def mounts(self, result, tmp, task_vars):
             mounttarget = mount["dataset"]
 
         if not self.has_mount(tmp, task_vars, mount["target"], mounttarget):
-            cmd = ['$(which pot)', 'mount-in', '-p', self._task.args.get('name')]
+            cmd = join(['$(which pot)', 'mount-in', '-p', self._task.args.get('name')]
             if "mode" in mount and mount["mode"] != "ro":
                 mount.pop("mode")
             <<cmdswitches(srctbl=jail-mounts-args,dict="cmd",kwargs="mount")>>
+            cmd = ' '.join(cmd)
             result.update(<<py_shell()>>)
     return result
 #+end_src
@@ -2237,7 +2239,7 @@ requires_ansible: ">=2.9"
 #+begin_src yaml :tangle zilti/pot/galaxy.yml :mkdirp yes
 namespace: zilti
 name: pot
-version: 0.5.9
+version: 0.5.10
 
 authors:
   - Daniel Ziltener <dziltener@lyrion.ch>

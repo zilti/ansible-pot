@@ -138,7 +138,7 @@ class ActionModule(ActionBase):
                 mounttarget = mount["dataset"]
     
             if not self.has_mount(tmp, task_vars, mount["target"], mounttarget):
-                cmd = ['$(which pot)', 'mount-in', '-p', self._task.args.get('name')]
+                cmd = join(['$(which pot)', 'mount-in', '-p', self._task.args.get('name')]
                 if "mode" in mount and mount["mode"] != "ro":
                     mount.pop("mode")
                 if mount.get("target", None):
@@ -163,6 +163,7 @@ class ActionModule(ActionBase):
                 if mount.get("mode", False):
                     cmd.append("-r")
                 
+                cmd = ' '.join(cmd)
                 result.update(self._execute_module(module_name='ansible.builtin.command', module_args=dict(_raw_params=cmd, _uses_shell=True), task_vars=task_vars, tmp=tmp))
         return result
     def map_ports(self, tmp, task_vars):
