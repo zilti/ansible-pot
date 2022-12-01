@@ -48,7 +48,7 @@ class ActionModule(ActionBase):
         jaildir = self.pot_root(tmp, task_vars)+'/jails/'+self._task.args.get('name')
         jailroot = jaildir+'/m'
         mountline = mounttarget+' '+jailroot+mountpoint
-        cmd = ' '.join(['cat', jaildir+'/conf/fscomp.conf'])
+        cmd = ' '.join(['cat', jaildir+'/conf/fscomp.conf', '|', 'awk \'{ print $1 " " $2 }\''])
         result = self._execute_module(module_name='ansible.builtin.command', module_args=dict(_raw_params=cmd, _uses_shell=True), task_vars=task_vars, tmp=tmp)
         res = list(filter(lambda x: x == mountline, result['stdout'].split("\n")))
         return len(res) > 0

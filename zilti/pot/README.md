@@ -1,43 +1,43 @@
 
 # Table of Contents
 
-1.  [Requirements](#org97772bd)
-2.  [Role Variables](#orgaedb1e6)
-    1.  [Pot Server](#org5739717)
-    2.  [Collected Variables](#orgb01e422)
-    3.  [Pot Configuration Template](#org327f380)
-3.  [Plugins](#orgbab6f3c)
-    1.  [Bridges Module](#org97b4d2f)
-    2.  [FS Components Module](#orgecbe3b6)
-    3.  [Bases Module](#orgc961377)
-    4.  [Jails Module](#org1a59c30)
-    5.  [Pot Connection](#org216285a)
-4.  [Dependencies](#org1f832de)
-5.  [Example Playbook](#orgd5c0cfd)
-6.  [License](#org79d07c8)
-7.  [Author Information](#orgb6a0253)
-8.  [Ansible Galaxy Metadata](#org2a3b8a6)
+1.  [Requirements](#org24a7d3f)
+2.  [Role Variables](#org731c304)
+    1.  [Pot Server](#org8175653)
+    2.  [Collected Variables](#org6836603)
+    3.  [Pot Configuration Template](#orgb765f8b)
+3.  [Plugins](#org4c3ab06)
+    1.  [Bridges Module](#org2d03442)
+    2.  [FS Components Module](#orge712543)
+    3.  [Bases Module](#org9976a30)
+    4.  [Jails Module](#org2cced91)
+    5.  [Pot Connection](#org291edc2)
+4.  [Dependencies](#org1d5ba55)
+5.  [Example Playbook](#orgcfd977f)
+6.  [License](#org31c637c)
+7.  [Author Information](#org6e54fe4)
+8.  [Ansible Galaxy Metadata](#org375067e)
 
 I am a role to manage your Pot jails on FreeBSD. My source is located in the [pot.org](https://github.com/zilti/ansible-pot/blob/master/pot.org) file.
 
 
-<a id="org97772bd"></a>
+<a id="org24a7d3f"></a>
 
 # Requirements
 
 None.
 
 
-<a id="orgaedb1e6"></a>
+<a id="org731c304"></a>
 
 # Role Variables
 
 
-<a id="org5739717"></a>
+<a id="org8175653"></a>
 
 ## Pot Server
 
-<table id="orgadca167" border="2" cellspacing="0" cellpadding="6" rules="groups" frame="hsides">
+<table id="org837da98" border="2" cellspacing="0" cellpadding="6" rules="groups" frame="hsides">
 
 
 <colgroup>
@@ -202,11 +202,11 @@ None.
       extif: 'em0'
 
 
-<a id="orgb01e422"></a>
+<a id="org6836603"></a>
 
 ## Collected Variables
 
-<table id="org63d2090" border="2" cellspacing="0" cellpadding="6" rules="groups" frame="hsides">
+<table id="org85d17b3" border="2" cellspacing="0" cellpadding="6" rules="groups" frame="hsides">
 
 
 <colgroup>
@@ -286,7 +286,7 @@ None.
       jails: '{{ ansible_local.pot.jails|default("{}") }}'
 
 
-<a id="org327f380"></a>
+<a id="orgb765f8b"></a>
 
 ## Pot Configuration Template
 
@@ -361,18 +361,18 @@ None.
     # EOF
 
 
-<a id="orgbab6f3c"></a>
+<a id="org4c3ab06"></a>
 
 # Plugins
 
 
-<a id="org97b4d2f"></a>
+<a id="org2d03442"></a>
 
 ## Bridges Module
 
 Pot bridges created with `pot create-private-bridge`.
 
-<table id="org514cdcc" border="2" cellspacing="0" cellpadding="6" rules="groups" frame="hsides">
+<table id="orgff0299c" border="2" cellspacing="0" cellpadding="6" rules="groups" frame="hsides">
 
 
 <colgroup>
@@ -445,13 +445,13 @@ Pot bridges created with `pot create-private-bridge`.
 ### Examples
 
 
-<a id="orgecbe3b6"></a>
+<a id="orge712543"></a>
 
 ## FS Components Module
 
 The ones created with `pot create-fscomp`.
 
-<table id="org5801080" border="2" cellspacing="0" cellpadding="6" rules="groups" frame="hsides">
+<table id="org5d29a93" border="2" cellspacing="0" cellpadding="6" rules="groups" frame="hsides">
 
 
 <colgroup>
@@ -514,13 +514,13 @@ The ones created with `pot create-fscomp`.
 ### Examples
 
 
-<a id="orgc961377"></a>
+<a id="org9976a30"></a>
 
 ## Bases Module
 
 The ones created with `pot create-base`.
 
-<table id="org80a5dfc" border="2" cellspacing="0" cellpadding="6" rules="groups" frame="hsides">
+<table id="org30b603d" border="2" cellspacing="0" cellpadding="6" rules="groups" frame="hsides">
 
 
 <colgroup>
@@ -593,13 +593,13 @@ The ones created with `pot create-base`.
 ### Examples
 
 
-<a id="org1a59c30"></a>
+<a id="org2cced91"></a>
 
 ## Jails Module
 
 For each jail, you can supply a number of arguments.
 
-<table id="orge6e3034" border="2" cellspacing="0" cellpadding="6" rules="groups" frame="hsides">
+<table id="org3918ba8" border="2" cellspacing="0" cellpadding="6" rules="groups" frame="hsides">
 
 
 <colgroup>
@@ -770,7 +770,7 @@ For each jail, you can supply a number of arguments.
 
 Options for mounts:
 
-<table id="orgab48aaf" border="2" cellspacing="0" cellpadding="6" rules="groups" frame="hsides">
+<table id="org56e2b3c" border="2" cellspacing="0" cellpadding="6" rules="groups" frame="hsides">
 
 
 <colgroup>
@@ -939,7 +939,7 @@ A freshly created pot is somewhat useless if you want to manage it with Ansible,
       become: yes
 
 
-<a id="org216285a"></a>
+<a id="org291edc2"></a>
 
 ## Pot Connection
 
@@ -948,7 +948,7 @@ This collection also provides a connection plugin to execute commands inside a P
 
 ### Local Pots
 
-<table id="org6123e61" border="2" cellspacing="0" cellpadding="6" rules="groups" frame="hsides">
+<table id="orgac78ac7" border="2" cellspacing="0" cellpadding="6" rules="groups" frame="hsides">
 
 
 <colgroup>
@@ -1010,14 +1010,14 @@ Connecting to remote pots works almost like the SSH connection plugin - it is an
 Be aware that the connection plugin will need to use a `become` plugin to copy files into and out of the pot.
 
 
-<a id="org1f832de"></a>
+<a id="org1d5ba55"></a>
 
 # Dependencies
 
 Needs the `community.general` collection.
 
 
-<a id="orgd5c0cfd"></a>
+<a id="orgcfd977f"></a>
 
 # Example Playbook
 
@@ -1050,21 +1050,21 @@ Needs the `community.general` collection.
     	fscomp: testfs
 
 
-<a id="org79d07c8"></a>
+<a id="org31c637c"></a>
 
 # License
 
 GPL3.0
 
 
-<a id="orgb6a0253"></a>
+<a id="org6e54fe4"></a>
 
 # Author Information
 
 Daniel Ziltener, Code & Magic UG
 
 
-<a id="org2a3b8a6"></a>
+<a id="org375067e"></a>
 
 # Ansible Galaxy Metadata
 
@@ -1072,7 +1072,7 @@ Daniel Ziltener, Code & Magic UG
 
     namespace: zilti
     name: pot
-    version: 0.5.11
+    version: 0.5.12
     
     authors:
       - Daniel Ziltener <dziltener@lyrion.ch>
