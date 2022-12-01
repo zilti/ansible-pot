@@ -138,7 +138,7 @@ class ActionModule(ActionBase):
                 mounttarget = mount["dataset"]
     
             if not self.has_mount(tmp, task_vars, mount["target"], mounttarget):
-                cmd = join(['$(which pot)', 'mount-in', '-p', self._task.args.get('name')]
+                cmd = ['$(which pot)', 'mount-in', '-p', self._task.args.get('name')]
                 if "mode" in mount and mount["mode"] != "ro":
                     mount.pop("mode")
                 if mount.get("target", None):
