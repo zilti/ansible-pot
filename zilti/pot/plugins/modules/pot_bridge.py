@@ -38,4 +38,16 @@ requirements:
 """
 
 EXAMPLES = r"""
+- name: Create private bridge
+  pot_bridge:
+    name: mybridge
+    size: 5
+- name: Check if creation was successful
+  shell:
+    cmd: if [ -f /opt/pot/bridges/mybridge ]; then exit 0; else exit 1; fi
+  register: bridgetest
+- name: Assert test result
+  assert:
+    that:
+      - bridgetest.rc == 0
 """

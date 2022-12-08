@@ -30,7 +30,7 @@ options:
       default: False
   ip:
       description:
-        - Defaults to 'auto'
+        - Defaults to auto
       type: list
       required: False
       default: []
@@ -85,6 +85,12 @@ options:
       required: False
       default: []
       elements: dict
+  attributes:
+      description:
+        - Attributes
+      type: dict
+      required: False
+      default: {}
   
 requirements:
   - FreeBSD with Root-on-ZFS

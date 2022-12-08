@@ -1,4 +1,4 @@
-# Created 2022-12-01 Do 16:20
+# Created 2022-12-08 Do 17:17
 #+options: toc:2
 #+title: Ansible Pot
 #+author: Daniel Ziltener
@@ -161,6 +161,22 @@ Pot bridges created with ~pot create-private-bridge~.
 
 *** Examples
 
+#+name: bridge-examples
+#+begin_src yaml
+  - name: Create private bridge
+    pot_bridge:
+      name: mybridge
+      size: 5
+  - name: Check if creation was successful
+    shell:
+      cmd: if [ -f /opt/pot/bridges/mybridge ]; then exit 0; else exit 1; fi
+    register: bridgetest
+  - name: Assert test result
+    assert:
+      that:
+        - bridgetest.rc == 0
+#+end_src
+
 ** FS Components Module
 
 The ones created with ~pot create-fscomp~.
@@ -193,24 +209,25 @@ The ones created with ~pot create-base~.
 For each jail, you can supply a number of arguments.
 
 #+name: jail-vars
-| Variable      | Type | Choices                                                | Required? | Default             | Info               |
-|---------------+------+--------------------------------------------------------+-----------+---------------------+--------------------|
-| name          | str  |                                                        | #t        | None                | The jail name      |
-| state         | str  | 'present', 'absent', 'started', 'stopped', 'restarted' | #f        | 'present'           |                    |
-| ignore        | bool |                                                        | #f        | False               | Ignore this task?  |
-| ip            | list | str                                                    | #f        | []                  | Defaults to 'auto' |
-| network_stack | str  | 'ipv4', 'ipv6', 'dual'                                 | #f        | 'dual'              |                    |
-| network_type  | str  | 'inherit', 'alias', 'public-bridge', 'private-bridge'  | #f        | 'inherit'           |                    |
-| bridge_name   | str  |                                                        | #f        | None                |                    |
-| base          | str  |                                                        | #t        | None                |                    |
-| pot           | str  |                                                        | #f        | None                |                    |
-| type          | str  | 'single', 'multi'                                      | #f        | 'multi'             |                    |
-| level         | int  |                                                        | #f        | None                |                    |
-| flavour       | list | str                                                    | #f        | ['ansible-managed'] |                    |
-| mounts        | list | dict                                                   | #f        | []                  | Things to mount    |
-| ports         | list | dict                                                   | #f        | []                  | Ports to map       |
+| Variable      | Type | Choices                                                | Required? | Default             | Info              |
+|---------------+------+--------------------------------------------------------+-----------+---------------------+-------------------|
+| name          | str  |                                                        | #t        | None                | The jail name     |
+| state         | str  | 'present', 'absent', 'started', 'stopped', 'restarted' | #f        | 'present'           |                   |
+| ignore        | bool |                                                        | #f        | False               | Ignore this task? |
+| ip            | list | str                                                    | #f        | []                  | Defaults to auto  |
+| network_stack | str  | 'ipv4', 'ipv6', 'dual'                                 | #f        | 'dual'              |                   |
+| network_type  | str  | 'inherit', 'alias', 'public-bridge', 'private-bridge'  | #f        | 'inherit'           |                   |
+| bridge_name   | str  |                                                        | #f        | None                |                   |
+| base          | str  |                                                        | #t        | None                |                   |
+| pot           | str  |                                                        | #f        | None                |                   |
+| type          | str  | 'single', 'multi'                                      | #f        | 'multi'             |                   |
+| level         | int  |                                                        | #f        | None                |                   |
+| flavour       | list | str                                                    | #f        | ['ansible-managed'] |                   |
+| mounts        | list | dict                                                   | #f        | []                  | Things to mount   |
+| ports         | list | dict                                                   | #f        | []                  | Ports to map      |
+| attributes    | dict |                                                        | #f        | {}                  | Attributes        |
 
-Options for mounts:
+*Options for mounts:*
 
 #+name: jail-mount-vars
 | Variable | Type | Choices    | Required? | Default | Info                                               |
@@ -222,7 +239,8 @@ Options for mounts:
 | direct   | bool |            | #f        | False   | change the ZFS mount point instead of using nullfs |
 | mode     | str  | 'ro', 'rw' | #f        | 'rw'    | Mount as read-only or read-write?                  |
 
-Options for ports:
+*Options for ports:*
+
 | Variable | Type | Choices      | Required? | Default | Info                             |
 |----------+------+--------------+-----------+---------+----------------------------------|
 | protocol | str  | 'tcp', 'udp' | #f        | 'tcp'   |                                  |
@@ -249,6 +267,7 @@ A freshly created pot is somewhat useless if you want to manage it with Ansible,
     become: yes
 #+end_src
 
+** Inventory
 ** Pot Connection
 
 This collection also provides a connection plugin to execute commands inside a Pot. Two variants are provided: one for local pots, and one for remote pots.
@@ -274,6 +293,10 @@ Connecting to remote pots works almost like the SSH connection plugin - it is an
 #+end_src
 
 Be aware that the connection plugin will need to use a =become= plugin to copy files into and out of the pot.
+
+** Lookup Plugin
+
+This lookup plugin is currently in a testing phase.
 
 * Dependencies
 
@@ -328,7 +351,7 @@ Daniel Ziltener, Code & Magic UG
 #+begin_src yaml
   namespace: zilti
   name: pot
-  version: 0.5.12
+  version: 0.5.15
 
   authors:
     - Daniel Ziltener <dziltener@lyrion.ch>

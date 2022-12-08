@@ -35,17 +35,19 @@ class ActionModule(ActionBase):
             cmd.append('%s' % self._task.args.get("size", None))
         
         cmd = ' '.join(cmd)
+        display.vvv('Creating bridge using %s' % cmd)
         return self._execute_module(module_name='ansible.builtin.command', module_args=dict(_raw_params=cmd, _uses_shell=True, creates=exists_path), task_vars=task_vars, tmp=tmp)
     
     def destroy(self, tmp, task_vars):
         exists_path = self.pot_root(tmp, task_vars)+'/bridges/'+self._task.args.get('name')
         cmd = ["$(which pot)", "destroy", "-B", self._task.args.get('name')]
         cmd = ' '.join(cmd)
+        display.vvv('Destroying bridge using %s' % cmd)
         return self._execute_module(module_name='ansible.builtin.command', module_args=dict(_raw_params=cmd, _uses_shell=True, removes=exists_path), task_vars=task_vars, tmp=tmp)
     
     def run(self, tmp=None, task_vars=None):
         result = super(ActionModule, self).run(tmp, task_vars)
-        state = self._task.args.get('state')
+        state = self._task.args.get('state', 'present')
         if state == 'present':
             result.update(self.create(tmp, task_vars))
         if state == 'absent':

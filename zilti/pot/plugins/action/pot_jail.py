@@ -166,21 +166,66 @@ class ActionModule(ActionBase):
                 cmd = ' '.join(cmd)
                 result.update(self._execute_module(module_name='ansible.builtin.command', module_args=dict(_raw_params=cmd, _uses_shell=True), task_vars=task_vars, tmp=tmp))
         return result
-    def map_ports(self, tmp, task_vars):
+    def map_ports(self, result, tmp, task_vars):
+        display.vvv('Mapping Jail Ports')
         ports = self._task.args.get('ports', None)
         if not ports:
-            return {}
-        cmd = ['$(which pot)', 'export-ports', '-p', self._task.args.get('name')]
+            return result
+        pmcmd = ['$(which pot)', 'export-ports', '-p', self._task.args.get('name')]
+        portlist = []
         for port in ports:
             portstr = "{0}".format(port["port"])
             if "protocol" in port:
                 portstr = "{0}:{1}".format(port["protocol"], portstr)
             if "pot_port" in port:
                 portstr = "{0}:{1}".format(portstr, port["pot_port"])
-            cmd.append('-e')
-            cmd.append(portstr)
-        cmd = ' '.join(cmd)
-        return self._execute_module(module_name='ansible.builtin.command', module_args=dict(_raw_params=cmd, _uses_shell=True), task_vars=task_vars, tmp=tmp)
+            pmcmd.append('-e')
+            pmcmd.append(portstr)
+            portlist.append(portstr)
+        cmd = ' '.join(['$(which pot)', 'info', '-vp', self._task.args.get('name')])
+        out = self._execute_module(module_name='ansible.builtin.command', module_args=dict(_raw_params=cmd, _uses_shell=True), task_vars=task_vars, tmp=tmp)
+        out = list(filter(lambda x : 'exported ports' in x, out['stdout'].split('\n')))
+        if len(out) > 0 and 'exported ports' in out[0]:
+            out = out[0].split('exported ports:')[1].strip()
+        else:
+            out = ''
+        display.vvv('Comparing %s with %s' % (out, ' '.join(portlist)))
+        if out == ' '.join(portlist):
+            return result
+        cmd = ' '.join(pmcmd)
+        return result.update(self._execute_module(module_name='ansible.builtin.command', module_args=dict(_raw_params=cmd, _uses_shell=True), task_vars=task_vars, tmp=tmp))
+    def set_attributes(self, result, tmp, task_vars):
+        display.vvv('Setting Jail Attributes')
+        attrs = self._task.args.get('attributes', None)
+        if not attrs:
+            return result
+        cmd = ' '.join(['$(which pot)', 'info', '-vp', self._task.args.get('name')])
+        out = self._execute_module(module_name='ansible.builtin.command', module_args=dict(_raw_params=cmd, _uses_shell=True), task_vars=task_vars, tmp=tmp)
+        display.vvv('Splitting %s by "jail attributes:"' % out['stdout'])
+        pot_attr_list = list(filter(lambda x: ':' in x, out['stdout'].split('jail attributes:')[1].split('\n')))
+        pot_attrs = {}
+        for pot_attr in pot_attr_list:
+            display.vvv('Splitting %s' % pot_attr)
+            pot_attr = pot_attr.split(':')
+            pot_attr[0] = pot_attr[0].strip()
+            pot_attr[1] = pot_attr[1].strip()
+            if pot_attr[1] == 'YES':
+                pot_attr[1] = True
+            if pot_attr[1] == 'NO':
+                pot_attr[1] = False
+            pot_attrs[pot_attr[0]] = pot_attr[1]
+        for attrk in attrs.keys():
+            if attrs[attrk] in ['YES', 'Yes', 'yes', 'true', 'True', 'TRUE']:
+                attrs[attrk] = True
+            if attrs[attrk] in ['NO', 'No', 'no', 'false', 'False', 'FALSE']:
+                attrs[attrk] = False
+        for attrk in attrs.keys():
+            if attrk in pot_attrs and pot_attrs[attrk] == attrs[attrk]:
+                continue
+            else:
+                cmd = ' '.join(['$(which pot)', 'set-attribute', '-p', self._task.args.get('name'), '-A', attrk, '-V', '%s' % attrs[attrk]])
+                result.update(self._execute_module(module_name='ansible.builtin.command', module_args=dict(_raw_params=cmd, _uses_shell=True), task_vars=task_vars, tmp=tmp))
+        return result
     def run(self, tmp=None, task_vars=None):
         result = super(ActionModule, self).run(tmp, task_vars)
         state = self._task.args.get('state')
@@ -194,5 +239,6 @@ class ActionModule(ActionBase):
             result.update(self.start(tmp, task_vars))
         if state != 'absent':
             result = self.mounts(result, tmp, task_vars)
-            result.update(self.map_ports(tmp, task_vars))
+            result = self.map_ports(result, tmp, task_vars)
+            result = self.set_attributes(result, tmp, task_vars)
         return result

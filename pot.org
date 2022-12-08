@@ -8,7 +8,27 @@ I am a role to manage your Pot jails on FreeBSD. My source is located in the [[h
 
 None.
 
-* Global Python Blocks :noexport:
+* Global Blocks :noexport:
+
+This is the header for all examples to turn them into runnable tests:
+
+#+name: ansi-test-head
+#+begin_src yaml
+- hosts: localhost
+  connection: local
+  become: yes
+  collections:
+    - zilti.pot
+  roles:
+    - role: zilti.pot.pot
+      vars:
+        pot:
+          enabled: true
+          vnet_enabled: true
+          zfs_root: tank/pot
+          extif: vtnet0
+  tasks:
+#+end_src
 
 Running shell commands:
 
@@ -405,6 +425,26 @@ requirements:
 
 *** Examples
 
+#+name: bridge-examples
+#+begin_src yaml
+- name: Create private bridge
+  pot_bridge:
+    name: mybridge
+    size: 5
+- name: Check if creation was successful
+  shell:
+    cmd: if [ -f /opt/pot/bridges/mybridge ]; then exit 0; else exit 1; fi
+  register: bridgetest
+- name: Assert test result
+  assert:
+    that:
+      - bridgetest.rc == 0
+#+end_src
+
+#+begin_src yaml :noweb yes :exports none :tangle tests/bridge.yml
+<<ansi-test-head>>
+  <<bridge-examples>>
+#+end_src
 
 *** Bridge Plugin :noexport:
 
@@ -423,6 +463,7 @@ def create(self, tmp, task_vars):
     cmd = ["$(which pot)", "create-private-bridge"]
     <<cmdswitches(srctbl=bridge-create-args,dict="cmd")>>
     cmd = ' '.join(cmd)
+    display.vvv('Creating bridge using %s' % cmd)
     return <<py_shell(creates="exists_path")>>
 
 #+end_src
@@ -435,6 +476,7 @@ def destroy(self, tmp, task_vars):
     exists_path = self.pot_root(tmp, task_vars)+'/bridges/'+self._task.args.get('name')
     cmd = ["$(which pot)", "destroy", "-B", self._task.args.get('name')]
     cmd = ' '.join(cmd)
+    display.vvv('Destroying bridge using %s' % cmd)
     return <<py_shell(removes="exists_path")>>
 
 #+end_src
@@ -451,7 +493,7 @@ class ActionModule(ActionBase):
     <<bridge_destroy>>
     def run(self, tmp=None, task_vars=None):
         result = super(ActionModule, self).run(tmp, task_vars)
-        state = self._task.args.get('state')
+        state = self._task.args.get('state', 'present')
         if state == 'present':
             result.update(self.create(tmp, task_vars))
         if state == 'absent':
@@ -469,6 +511,7 @@ DOCUMENTATION = r"""
 """
 
 EXAMPLES = r"""
+<<bridge-examples>>
 """
 #+end_src
 
@@ -663,24 +706,25 @@ EXAMPLES = r"""
 For each jail, you can supply a number of arguments.
 
 #+name: jail-vars
-| Variable      | Type | Choices                                                | Required? | Default             | Info               |
-|---------------+------+--------------------------------------------------------+-----------+---------------------+--------------------|
-| name          | str  |                                                        | #t        | None                | The jail name      |
-| state         | str  | 'present', 'absent', 'started', 'stopped', 'restarted' | #f        | 'present'           |                    |
-| ignore        | bool |                                                        | #f        | False               | Ignore this task?  |
-| ip            | list | str                                                    | #f        | []                  | Defaults to 'auto' |
-| network_stack | str  | 'ipv4', 'ipv6', 'dual'                                 | #f        | 'dual'              |                    |
-| network_type  | str  | 'inherit', 'alias', 'public-bridge', 'private-bridge'  | #f        | 'inherit'           |                    |
-| bridge_name   | str  |                                                        | #f        | None                |                    |
-| base          | str  |                                                        | #t        | None                |                    |
-| pot           | str  |                                                        | #f        | None                |                    |
-| type          | str  | 'single', 'multi'                                      | #f        | 'multi'             |                    |
-| level         | int  |                                                        | #f        | None                |                    |
-| flavour       | list | str                                                    | #f        | ['ansible-managed'] |                    |
-| mounts        | list | dict                                                   | #f        | []                  | Things to mount    |
-| ports         | list | dict                                                   | #f        | []                  | Ports to map       |
+| Variable      | Type | Choices                                                | Required? | Default             | Info              |
+|---------------+------+--------------------------------------------------------+-----------+---------------------+-------------------|
+| name          | str  |                                                        | #t        | None                | The jail name     |
+| state         | str  | 'present', 'absent', 'started', 'stopped', 'restarted' | #f        | 'present'           |                   |
+| ignore        | bool |                                                        | #f        | False               | Ignore this task? |
+| ip            | list | str                                                    | #f        | []                  | Defaults to auto  |
+| network_stack | str  | 'ipv4', 'ipv6', 'dual'                                 | #f        | 'dual'              |                   |
+| network_type  | str  | 'inherit', 'alias', 'public-bridge', 'private-bridge'  | #f        | 'inherit'           |                   |
+| bridge_name   | str  |                                                        | #f        | None                |                   |
+| base          | str  |                                                        | #t        | None                |                   |
+| pot           | str  |                                                        | #f        | None                |                   |
+| type          | str  | 'single', 'multi'                                      | #f        | 'multi'             |                   |
+| level         | int  |                                                        | #f        | None                |                   |
+| flavour       | list | str                                                    | #f        | ['ansible-managed'] |                   |
+| mounts        | list | dict                                                   | #f        | []                  | Things to mount   |
+| ports         | list | dict                                                   | #f        | []                  | Ports to map      |
+| attributes    | dict |                                                        | #f        | {}                  | Attributes        |
 
-Options for mounts:
+*Options for mounts:*
 
 #+name: jail-mount-vars
 | Variable | Type | Choices    | Required? | Default | Info                                               |
@@ -692,7 +736,8 @@ Options for mounts:
 | direct   | bool |            | #f        | False   | change the ZFS mount point instead of using nullfs |
 | mode     | str  | 'ro', 'rw' | #f        | 'rw'    | Mount as read-only or read-write?                  |
 
-Options for ports:
+*Options for ports:*
+
 | Variable | Type | Choices      | Required? | Default | Info                             |
 |----------+------+--------------+-----------+---------+----------------------------------|
 | protocol | str  | 'tcp', 'udp' | #f        | 'tcp'   |                                  |
@@ -863,21 +908,72 @@ Mapping ports to jails:
 
 #+name: jail_portmap
 #+begin_src python :noweb no-export
-def map_ports(self, tmp, task_vars):
+def map_ports(self, result, tmp, task_vars):
+    display.vvv('Mapping Jail Ports')
     ports = self._task.args.get('ports', None)
     if not ports:
-        return {}
-    cmd = ['$(which pot)', 'export-ports', '-p', self._task.args.get('name')]
+        return result
+    pmcmd = ['$(which pot)', 'export-ports', '-p', self._task.args.get('name')]
+    portlist = []
     for port in ports:
         portstr = "{0}".format(port["port"])
         if "protocol" in port:
             portstr = "{0}:{1}".format(port["protocol"], portstr)
         if "pot_port" in port:
             portstr = "{0}:{1}".format(portstr, port["pot_port"])
-        cmd.append('-e')
-        cmd.append(portstr)
-    cmd = ' '.join(cmd)
-    return <<py_shell()>>
+        pmcmd.append('-e')
+        pmcmd.append(portstr)
+        portlist.append(portstr)
+    cmd = ' '.join(['$(which pot)', 'info', '-vp', self._task.args.get('name')])
+    out = <<py_shell()>>
+    out = list(filter(lambda x : 'exported ports' in x, out['stdout'].split('\n')))
+    if len(out) > 0 and 'exported ports' in out[0]:
+        out = out[0].split('exported ports:')[1].strip()
+    else:
+        out = ''
+    display.vvv('Comparing %s with %s' % (out, ' '.join(portlist)))
+    if out == ' '.join(portlist):
+        return result
+    cmd = ' '.join(pmcmd)
+    return result.update(<<py_shell()>>)
+#+end_src
+
+Attributes management:
+
+#+name: jail_attributes
+#+begin_src python :noweb no-export
+def set_attributes(self, result, tmp, task_vars):
+    display.vvv('Setting Jail Attributes')
+    attrs = self._task.args.get('attributes', None)
+    if not attrs:
+        return result
+    cmd = ' '.join(['$(which pot)', 'info', '-vp', self._task.args.get('name')])
+    out = <<py_shell()>>
+    display.vvv('Splitting %s by "jail attributes:"' % out['stdout'])
+    pot_attr_list = list(filter(lambda x: ':' in x, out['stdout'].split('jail attributes:')[1].split('\n')))
+    pot_attrs = {}
+    for pot_attr in pot_attr_list:
+        display.vvv('Splitting %s' % pot_attr)
+        pot_attr = pot_attr.split(':')
+        pot_attr[0] = pot_attr[0].strip()
+        pot_attr[1] = pot_attr[1].strip()
+        if pot_attr[1] == 'YES':
+            pot_attr[1] = True
+        if pot_attr[1] == 'NO':
+            pot_attr[1] = False
+        pot_attrs[pot_attr[0]] = pot_attr[1]
+    for attrk in attrs.keys():
+        if attrs[attrk] in ['YES', 'Yes', 'yes', 'true', 'True', 'TRUE']:
+            attrs[attrk] = True
+        if attrs[attrk] in ['NO', 'No', 'no', 'false', 'False', 'FALSE']:
+            attrs[attrk] = False
+    for attrk in attrs.keys():
+        if attrk in pot_attrs and pot_attrs[attrk] == attrs[attrk]:
+            continue
+        else:
+            cmd = ' '.join(['$(which pot)', 'set-attribute', '-p', self._task.args.get('name'), '-A', attrk, '-V', '%s' % attrs[attrk]])
+            result.update(<<py_shell()>>)
+    return result
 #+end_src
 
 Plugin:
@@ -898,6 +994,7 @@ class ActionModule(ActionBase):
     <<jail_start>>
     <<jail_mounts>>
     <<jail_portmap>>
+    <<jail_attributes>>
     def run(self, tmp=None, task_vars=None):
         result = super(ActionModule, self).run(tmp, task_vars)
         state = self._task.args.get('state')
@@ -911,7 +1008,8 @@ class ActionModule(ActionBase):
             result.update(self.start(tmp, task_vars))
         if state != 'absent':
             result = self.mounts(result, tmp, task_vars)
-            result.update(self.map_ports(tmp, task_vars))
+            result = self.map_ports(result, tmp, task_vars)
+            result = self.set_attributes(result, tmp, task_vars)
         return result
 #+end_src
 
@@ -946,6 +1044,33 @@ pkg clean -ayq
   become: yes
 #+end_src
 
+** Inventory
+#+begin_src python :tangle zilti/pot/plugins/inventory/pot_inventory.py :mkdirp yes :exports none
+# -*- Coding: utf-8 -*-
+from __future__ import (absolute_import, division, print_function)
+import os
+import re
+import subprocess
+
+__metaclass__ = type
+
+from ansible.errors import AnsibleError
+from ansible.plugins.inventory import BaseInventoryPlugin, Constructable
+from ansible.utils.display import Display
+
+display = Display()
+
+
+class InventoryModule(BaseInventoryPlugin, Constructable):
+    NAME = 'zilti.pot.pot'
+
+    def _populate(self):
+
+
+    def parse(self, inventory, loader, path, cache=True):
+        super(InventoryModule, self).parse(inventory, loader, path)
+        self._read_config_data(path=path)
+#+end_src
 ** Pot Connection
 
 This collection also provides a connection plugin to execute commands inside a Pot. Two variants are provided: one for local pots, and one for remote pots.
@@ -1507,6 +1632,31 @@ class Connection(ConnectionBase):
             display.vvv("Jail %s: fetching %s to %s" % (self.jailspec, in_path, tmp))
             self._copy_file('out', in_path, tmp)
             super(Connection, self).fetch_file(tmp, out_path)
+#+end_src
+
+** Lookup Plugin
+
+This lookup plugin is currently in a testing phase.
+
+*** Lookup Plugin :noexport:
+
+#+begin_src python :tangle zilti/pot/plugins/lookup/pot.py :mkdirp yes
+<<lookup-header>>
+
+class LookupModule(LookupBase):
+    def run(self, terms, variables=None, **kwargs):
+        self.set_options(var_options=variables, direct=kwargs)
+        paramvals = self.get_options()
+        cmd = '/usr/local/etc/ansible/facts.d/pot.fact'
+        potfact = <<py_shell()>>
+        potfact = json.loads(potfact.stdout)
+        potname = paramvals['pot']
+
+        if 'active' in paramvals:
+            return potfact['jails'][potname]['active']
+
+        attr = paramvals['attribute']
+        return potfact['jails'][potname]['config'][attr]
 #+end_src
 
 * Dependencies
@@ -2239,7 +2389,7 @@ requires_ansible: ">=2.9"
 #+begin_src yaml :tangle zilti/pot/galaxy.yml :mkdirp yes
 namespace: zilti
 name: pot
-version: 0.5.12
+version: 0.5.15
 
 authors:
   - Daniel Ziltener <dziltener@lyrion.ch>
@@ -2369,6 +2519,20 @@ display = Display()
 
 
 __metaclass__ = type
+
+#+end_src
+
+#+name: lookup-header
+#+begin_src python
+# -*- Coding: utf-8 -*-
+from __future__ import (absolute_import, division, print_function)
+__metaclass__ = type
+from ansible.errors import AnsibleError
+from ansible.plugins.lookup import LookupBase
+from ansible.utils.display import Display
+import json
+
+display = Display()
 
 #+end_src
 
