@@ -1030,7 +1030,7 @@ EXAMPLES = r"""
 
 A freshly created pot is somewhat useless if you want to manage it with Ansible, because there is no Python installation, and no sudo.
 
-#+begin_src shell :shebang /bin/sh :tangle zilti/pot/roles/pot/files/ansible-managed.sh
+#+begin_src shell :shebang #!/bin/sh :tangle zilti/pot/roles/pot/files/ansible-managed.sh
 pkg install -y python3 sudo
 pkg clean -ayq
 #+end_src
@@ -2389,7 +2389,7 @@ requires_ansible: ">=2.9"
 #+begin_src yaml :tangle zilti/pot/galaxy.yml :mkdirp yes
 namespace: zilti
 name: pot
-version: 0.5.15
+version: 0.5.26
 
 authors:
   - Daniel Ziltener <dziltener@lyrion.ch>
