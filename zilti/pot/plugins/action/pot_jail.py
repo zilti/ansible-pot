@@ -193,7 +193,8 @@ class ActionModule(ActionBase):
         if out == ' '.join(portlist):
             return result
         cmd = ' '.join(pmcmd)
-        return result.update(self._execute_module(module_name='ansible.builtin.command', module_args=dict(_raw_params=cmd, _uses_shell=True), task_vars=task_vars, tmp=tmp))
+        result.update(self._execute_module(module_name='ansible.builtin.command', module_args=dict(_raw_params=cmd, _uses_shell=True), task_vars=task_vars, tmp=tmp))
+        return result
     def set_attributes(self, result, tmp, task_vars):
         display.vvv('Setting Jail Attributes')
         attrs = self._task.args.get('attributes', None)

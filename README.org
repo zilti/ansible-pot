@@ -1,4 +1,4 @@
-# Created 2023-03-01 Mi 20:01
+# Created 2023-03-01 Mi 21:17
 #+options: toc:2
 #+title: Ansible Pot
 #+author: Daniel Ziltener
@@ -351,7 +351,7 @@ Daniel Ziltener, Code & Magic UG
 #+begin_src yaml
   namespace: zilti
   name: pot
-  version: 0.5.26
+  version: 0.5.27
 
   authors:
     - Daniel Ziltener <dziltener@lyrion.ch>
