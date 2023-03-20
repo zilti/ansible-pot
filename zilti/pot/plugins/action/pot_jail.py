@@ -236,10 +236,10 @@ class ActionModule(ActionBase):
             result.update(self.stop(tmp, task_vars))
         if state in ['absent']:
             result.update(self.destroy(tmp, task_vars))
-        if state in ['started', 'restarted']:
-            result.update(self.start(tmp, task_vars))
         if state != 'absent':
             result = self.mounts(result, tmp, task_vars)
             result = self.map_ports(result, tmp, task_vars)
             result = self.set_attributes(result, tmp, task_vars)
+        if state in ['started', 'restarted']:
+            result.update(self.start(tmp, task_vars))
         return result
