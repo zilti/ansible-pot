@@ -744,6 +744,12 @@ For each jail, you can supply a number of arguments.
 | port     | int  |              | #t        | None    | The port to export               |
 | pot_port | int  |              | #f        | None    | dynamically allocated by default |
 
+*Return values:*
+
+| Variable | Type | Info                    |
+|----------+------+-------------------------|
+| ip       | str  | The assigned IP address |
+
 #+name: jail-docstr
 #+begin_src yaml :noweb no-export :exports none
 ---
@@ -806,16 +812,16 @@ Creating a jail accepts a number of arguments:
 
 #+name: jail_create
 #+begin_src python :noweb no-export
-def create(self, tmp, task_vars):
+def create(self, result, tmp, task_vars):
     if self.jail_exists(tmp, task_vars):
-        return {}
+        return result
     exists_path = self.pot_root(tmp, task_vars)+'/jails/'+self._task.args.get('name')
     cmd = ['$(which pot)', 'create']
     <<cmdswitches(srctbl=jail-create-args,dict="cmd")>>
     display.vvv("Prepared jail creation command: %s" % cmd)
     cmd = ' '.join(cmd)
-    result = <<py_shell(creates="exists_path")>>
-    display.vvv("Result of jail creation: %s" % result)
+    <<py_shell(creates="exists_path")>>
+    result['changed'] = True
     return result
 #+end_src
 
@@ -1000,7 +1006,7 @@ class ActionModule(ActionBase):
         result = super(ActionModule, self).run(tmp, task_vars)
         state = self._task.args.get('state')
         if state in ['present', 'stopped', 'started', 'restarted']:
-            result.update(self.create(tmp, task_vars))
+            result = self.create(result, tmp, task_vars)
         if state in ['stopped', 'restarted', 'absent']:
             result.update(self.stop(tmp, task_vars))
         if state in ['absent']:
@@ -1011,6 +1017,8 @@ class ActionModule(ActionBase):
             result = self.set_attributes(result, tmp, task_vars)
         if state in ['started', 'restarted']:
             result.update(self.start(tmp, task_vars))
+        if state != 'absent':
+            result['ip'] = self.get_info(tmp, task_vars, 'ip')
         return result
 #+end_src
 
@@ -2417,7 +2425,7 @@ requires_ansible: ">=2.9"
 #+begin_src yaml :tangle zilti/pot/galaxy.yml :mkdirp yes
 namespace: zilti
 name: pot
-version: 0.5.30
+version: 0.5.31
 
 authors:
   - Daniel Ziltener <dziltener@lyrion.ch>

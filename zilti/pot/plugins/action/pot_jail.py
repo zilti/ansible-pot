@@ -52,9 +52,9 @@ class ActionModule(ActionBase):
         result = self._execute_module(module_name='ansible.builtin.command', module_args=dict(_raw_params=cmd, _uses_shell=True), task_vars=task_vars, tmp=tmp)
         res = list(filter(lambda x: x == mountline, result['stdout'].split("\n")))
         return len(res) > 0
-    def create(self, tmp, task_vars):
+    def create(self, result, tmp, task_vars):
         if self.jail_exists(tmp, task_vars):
-            return {}
+            return result
         exists_path = self.pot_root(tmp, task_vars)+'/jails/'+self._task.args.get('name')
         cmd = ['$(which pot)', 'create']
         if self._task.args.get("name", None):
@@ -103,8 +103,8 @@ class ActionModule(ActionBase):
         
         display.vvv("Prepared jail creation command: %s" % cmd)
         cmd = ' '.join(cmd)
-        result = self._execute_module(module_name='ansible.builtin.command', module_args=dict(_raw_params=cmd, _uses_shell=True, creates=exists_path), task_vars=task_vars, tmp=tmp)
-        display.vvv("Result of jail creation: %s" % result)
+        self._execute_module(module_name='ansible.builtin.command', module_args=dict(_raw_params=cmd, _uses_shell=True, creates=exists_path), task_vars=task_vars, tmp=tmp)
+        result['changed'] = True
         return result
     def destroy(self, tmp, task_vars):
         if not self.jail_exists(tmp, task_vars):
@@ -231,7 +231,7 @@ class ActionModule(ActionBase):
         result = super(ActionModule, self).run(tmp, task_vars)
         state = self._task.args.get('state')
         if state in ['present', 'stopped', 'started', 'restarted']:
-            result.update(self.create(tmp, task_vars))
+            result = self.create(result, tmp, task_vars)
         if state in ['stopped', 'restarted', 'absent']:
             result.update(self.stop(tmp, task_vars))
         if state in ['absent']:
@@ -242,4 +242,6 @@ class ActionModule(ActionBase):
             result = self.set_attributes(result, tmp, task_vars)
         if state in ['started', 'restarted']:
             result.update(self.start(tmp, task_vars))
+        if state != 'absent':
+            result['ip'] = self.get_info(tmp, task_vars, 'ip')
         return result
