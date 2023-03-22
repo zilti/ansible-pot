@@ -38,6 +38,7 @@ POT_EXTIF={{ pot.extif|default("em0") }}
 {% if "extra_extif" in pot %}
 # The list of extra network interface, to make other network segments accessible
 POT_EXTRA_EXTIF={%- for item in pot.extra_extif %}{{ item.name }} {%- endfor %}
+
 # for each extra interface, a variable is used to sepcify its network segment
 {% for item in pot.extra_extif %}
 POT_NETWORK_{{ item.name }}={{ item.netmask }}

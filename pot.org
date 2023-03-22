@@ -362,6 +362,7 @@ POT_EXTIF={{ pot.extif|default("em0") }}
 {% if "extra_extif" in pot %}
 # The list of extra network interface, to make other network segments accessible
 POT_EXTRA_EXTIF={%- for item in pot.extra_extif %}{{ item.name }} {%- endfor %}
+
 # for each extra interface, a variable is used to sepcify its network segment
 {% for item in pot.extra_extif %}
 POT_NETWORK_{{ item.name }}={{ item.netmask }}
@@ -2425,7 +2426,7 @@ requires_ansible: ">=2.9"
 #+begin_src yaml :tangle zilti/pot/galaxy.yml :mkdirp yes
 namespace: zilti
 name: pot
-version: 0.5.31
+version: 0.5.32
 
 authors:
   - Daniel Ziltener <dziltener@lyrion.ch>

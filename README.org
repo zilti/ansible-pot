@@ -1,4 +1,4 @@
-# Created 2023-03-22 Mi 05:24
+# Created 2023-03-22 Mi 22:41
 #+options: toc:2
 #+title: Ansible Pot
 #+author: Daniel Ziltener
@@ -113,6 +113,7 @@ None.
   {% if "extra_extif" in pot %}
   # The list of extra network interface, to make other network segments accessible
   POT_EXTRA_EXTIF={%- for item in pot.extra_extif %}{{ item.name }} {%- endfor %}
+
   # for each extra interface, a variable is used to sepcify its network segment
   {% for item in pot.extra_extif %}
   POT_NETWORK_{{ item.name }}={{ item.netmask }}
@@ -247,6 +248,12 @@ For each jail, you can supply a number of arguments.
 | port     | int  |              | #t        | None    | The port to export               |
 | pot_port | int  |              | #f        | None    | dynamically allocated by default |
 
+*Return values:*
+
+| Variable | Type | Info                    |
+|----------+------+-------------------------|
+| ip       | str  | The assigned IP address |
+
 *** Examples
 
 *** =ansible-managed= Flavour
@@ -351,7 +358,7 @@ Daniel Ziltener, Code & Magic UG
 #+begin_src yaml
   namespace: zilti
   name: pot
-  version: 0.5.31
+  version: 0.5.32
 
   authors:
     - Daniel Ziltener <dziltener@lyrion.ch>
