@@ -25,10 +25,13 @@ version_added: historical
 options:
   host:
       description: Hostname/ip to connect to.
-      default: inventory_hostname
+      default: ''
       vars:
+           - name: inventory_hostname
            - name: ansible_host
            - name: ansible_ssh_host
+           - name: delegated_vars['ansible_host']
+           - name: delegated_vars['ansible_ssh_host']
   host_key_checking:
       description: Determines if ssh should check host keys
       type: boolean
@@ -52,6 +55,7 @@ options:
       vars:
           - name: ansible_password
           - name: ansible_ssh_pass
+          - name: ansible_ssh_password
   sshpass_prompt:
       description: Password prompt that sshpass should search for. Supported by sshpass 1.06 and up
       default: ''
@@ -85,6 +89,8 @@ options:
             version_added: '2.7'
       vars:
           - name: ansible_ssh_common_args
+      cli:
+          - name: ssh_common_args
   ssh_executable:
       default: ssh
       description:
@@ -132,6 +138,9 @@ options:
         - key: scp_extra_args
           section: ssh_connection
           version_added: '2.7'
+      cli:
+        - name: scp_extra_args
+      default: ''
   sftp_extra_args:
       description: Extra exclusive to the ``sftp`` CLI
       vars:
@@ -143,6 +152,9 @@ options:
         - key: sftp_extra_args
           section: ssh_connection
           version_added: '2.7'
+      cli:
+        - name: sftp_extra_args
+      default: ''
   ssh_extra_args:
       description: Extra exclusive to the 'ssh' CLI
       vars:
@@ -154,6 +166,9 @@ options:
         - key: ssh_extra_args
           section: ssh_connection
           version_added: '2.7'
+      cli:
+        - name: ssh_extra_args
+      default: ''
   reconnection_retries:
       description: Number of attempts to connect.
       default: 0
@@ -179,6 +194,8 @@ options:
       vars:
         - name: ansible_port
         - name: ansible_ssh_port
+      keyword:
+        - name: port
   remote_user:
       description:
           - User name with which to login to the remote server, normally set by the remote_user keyword.
@@ -191,6 +208,10 @@ options:
       vars:
         - name: ansible_user
         - name: ansible_ssh_user
+      cli:
+        - name: user
+      keyword:
+        - name: remote_user
   pipelining:
       default: ANSIBLE_PIPELINING
       description:
@@ -202,12 +223,12 @@ options:
           which is why this feature is disabled by default.
       env:
         - name: ANSIBLE_PIPELINING
-        #- name: ANSIBLE_SSH_PIPELINING
+        - name: ANSIBLE_SSH_PIPELINING
       ini:
         - section: defaults
           key: pipelining
-        #- section: ssh_connection
-        #  key: pipelining
+        - section: ssh_connection
+          key: pipelining
       type: boolean
       vars:
         - name: ansible_pipelining
@@ -223,6 +244,9 @@ options:
       vars:
         - name: ansible_private_key_file
         - name: ansible_ssh_private_key_file
+      cli:
+        - name: private_key_file
+          option: '--private-key'
   control_path:
     description:
       - This is the location to save ssh's ControlPath sockets, it uses ssh's variable substitution.
@@ -268,6 +292,9 @@ options:
     env: [{name: ANSIBLE_SSH_TRANSFER_METHOD}]
     ini:
         - {key: transfer_method, section: ssh_connection}
+    vars:
+        - name: ansible_ssh_transfer_method
+          version_added: '2.12'
   scp_if_ssh:
     default: smart
     description:
