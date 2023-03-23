@@ -106,24 +106,26 @@ class ActionModule(ActionBase):
         self._execute_module(module_name='ansible.builtin.command', module_args=dict(_raw_params=cmd, _uses_shell=True, creates=exists_path), task_vars=task_vars, tmp=tmp)
         result['changed'] = True
         return result
-    def destroy(self, tmp, task_vars):
+    def destroy(self, result, tmp, task_vars):
         if not self.jail_exists(tmp, task_vars):
-            return {}
+            return result
         exists_path = self.pot_root(tmp, task_vars)+'/jails/'+self._task.args.get('name')
         cmd = ' '.join(['$(which pot)', 'destroy', '-rp', self._task.args.get('name')])
-        return self._execute_module(module_name='ansible.builtin.command', module_args=dict(_raw_params=cmd, _uses_shell=True, removes=exists_path), task_vars=task_vars, tmp=tmp)
-    def stop(self, tmp, task_vars):
+        self._execute_module(module_name='ansible.builtin.command', module_args=dict(_raw_params=cmd, _uses_shell=True, removes=exists_path), task_vars=task_vars, tmp=tmp)
+        result['changed'] = True
+        return result
+    def stop(self, result, tmp, task_vars):
         cmd = ' '.join(['$(which pot)', 'stop', self._task.args.get('name')])
         if self.get_info(tmp, task_vars, 'active') == 'true':
-            return self._execute_module(module_name='ansible.builtin.command', module_args=dict(_raw_params=cmd, _uses_shell=True), task_vars=task_vars, tmp=tmp)
-        else:
-            return {}
-    def start(self, tmp, task_vars):
+            self._execute_module(module_name='ansible.builtin.command', module_args=dict(_raw_params=cmd, _uses_shell=True), task_vars=task_vars, tmp=tmp)
+            result['changed'] = True
+        return result
+    def start(self, result, tmp, task_vars):
         cmd = ' '.join(['$(which pot)', 'start', self._task.args.get('name')])
         if self.get_info(tmp, task_vars, 'active') == 'false':
-            return self._execute_module(module_name='ansible.builtin.command', module_args=dict(_raw_params=cmd, _uses_shell=True), task_vars=task_vars, tmp=tmp)
-        else:
-            return {}
+            self._execute_module(module_name='ansible.builtin.command', module_args=dict(_raw_params=cmd, _uses_shell=True), task_vars=task_vars, tmp=tmp)
+            result['changed'] = True
+        return result
     def mounts(self, result, tmp, task_vars):
         mounts = self._task.args.get('mounts', None)
         if not mounts:
@@ -193,7 +195,8 @@ class ActionModule(ActionBase):
         if out == ' '.join(portlist):
             return result
         cmd = ' '.join(pmcmd)
-        result.update(self._execute_module(module_name='ansible.builtin.command', module_args=dict(_raw_params=cmd, _uses_shell=True), task_vars=task_vars, tmp=tmp))
+        self._execute_module(module_name='ansible.builtin.command', module_args=dict(_raw_params=cmd, _uses_shell=True), task_vars=task_vars, tmp=tmp)
+        result["changed"] = True
         return result
     def set_attributes(self, result, tmp, task_vars):
         display.vvv('Setting Jail Attributes')
@@ -225,7 +228,8 @@ class ActionModule(ActionBase):
                 continue
             else:
                 cmd = ' '.join(['$(which pot)', 'set-attribute', '-p', self._task.args.get('name'), '-A', attrk, '-V', '%s' % attrs[attrk]])
-                result.update(self._execute_module(module_name='ansible.builtin.command', module_args=dict(_raw_params=cmd, _uses_shell=True), task_vars=task_vars, tmp=tmp))
+                newres = self._execute_module(module_name='ansible.builtin.command', module_args=dict(_raw_params=cmd, _uses_shell=True), task_vars=task_vars, tmp=tmp)
+                result['changed'] = result['changed'] or newres['changed']
         return result
     def run(self, tmp=None, task_vars=None):
         result = super(ActionModule, self).run(tmp, task_vars)
@@ -233,15 +237,15 @@ class ActionModule(ActionBase):
         if state in ['present', 'stopped', 'started', 'restarted']:
             result = self.create(result, tmp, task_vars)
         if state in ['stopped', 'restarted', 'absent']:
-            result.update(self.stop(tmp, task_vars))
+            result = self.stop(result, tmp, task_vars)
         if state in ['absent']:
-            result.update(self.destroy(tmp, task_vars))
+            result = self.destroy(result, tmp, task_vars)
         if state != 'absent':
             result = self.mounts(result, tmp, task_vars)
             result = self.map_ports(result, tmp, task_vars)
             result = self.set_attributes(result, tmp, task_vars)
         if state in ['started', 'restarted']:
-            result.update(self.start(tmp, task_vars))
+            result = self.start(result, tmp, task_vars)
         if state != 'absent':
             result['ip'] = self.get_info(tmp, task_vars, 'ip')
         return result
