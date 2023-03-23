@@ -6,7 +6,7 @@
 
 .PHONY: galaxy-publish
 
-VERSION = 0.5.33
+VERSION = 0.5.34
 GALAXY_ARTIFACT := zilti-pot-${VERSION}.tar.gz
 
 README.org zilti/pot/README.org zilti/pot/README.md zilti/pot/galaxy.yml: pot.org

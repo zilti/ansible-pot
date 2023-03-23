@@ -229,7 +229,7 @@ class ActionModule(ActionBase):
             else:
                 cmd = ' '.join(['$(which pot)', 'set-attribute', '-p', self._task.args.get('name'), '-A', attrk, '-V', '%s' % attrs[attrk]])
                 newres = self._execute_module(module_name='ansible.builtin.command', module_args=dict(_raw_params=cmd, _uses_shell=True), task_vars=task_vars, tmp=tmp)
-                result['changed'] = result['changed'] or newres['changed']
+                result['changed'] = True
         return result
     def run(self, tmp=None, task_vars=None):
         result = super(ActionModule, self).run(tmp, task_vars)
